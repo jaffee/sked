@@ -1,1 +1,24 @@
 Scheduling slackbot based on https://github.com/rapidloop/mybot
+
+
+* Capabilities
+
+** Add people to the schedule
+
+** List everyone on the schedule
+
+** Get the current scheduled person
+
+** TODO Get the scheduled person for a specified date/time
+
+** TODO Get the schedule from time X to time Y
+
+** TODO Schedule a person for a certain time
+
+** TODO Remove people from the schedule
+
+** TODO Mark a person as unavailable for certain times
+
+** TODO notify a channel of who is responsible for support when it changes - or at a specified interval
+
+** TODO notify the person who will be responsible for support in advance of their shift
