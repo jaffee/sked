@@ -21,8 +21,8 @@ Scheduling slackbot based on https://github.com/rapidloop/mybot
 
 ** TODO notify a channel of who is responsible for support when it changes - or at a specified interval
 
-** TODO notify the person who will be responsible for support in advance of their shift
+** TODO notify the person who is scheduled in advance of their shift
 
 * Tasks
 
-** TODO Make help messages available
+** DONE Make help messages available

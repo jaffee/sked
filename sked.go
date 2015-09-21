@@ -60,7 +60,6 @@ func main() {
 	}
 
 	command_map := map[string]action{
-		"stock":   action{doNothing, "blah"},
 		"current": action{getCurrent, "Tell me who's scheduled right now"},
 		"add":     action{addPerson, "Add a new person to be scheduled"},
 		"list":    action{list, "List all the possible people that could be scheduled"},
@@ -85,7 +84,9 @@ func main() {
 			parts := strings.Fields(m.Text)
 			// command name is first argument
 			com_name := parts[1]
-			if act, ok := command_map[com_name]; ok {
+			if com_name == "help" {
+				helpAction(command_map, parts, ws, m)
+			} else if act, ok := command_map[com_name]; ok {
 				// if we know the command...
 				c := command{parts[1], parts[2:]}
 				act.function(c, ws, m, &sked_state)
@@ -99,7 +100,24 @@ func main() {
 	}
 }
 
-func doNothing(cc command, ws *websocket.Conn, m Message, s *state) {
+func helpAction(command_map map[string]action, parts []string, ws *websocket.Conn, m Message) {
+	if len(parts) > 2 {
+		act, ok := command_map[parts[2]]
+		if ok {
+			m.Text = fmt.Sprintf("```  %v: %v```", parts[2], act.help)
+		} else {
+			m.Text = fmt.Sprintf("Unknown command %v", parts[2])
+		}
+	} else if len(parts) == 2 {
+		help_list := make([]string, len(command_map))
+		i := 0
+		for com, act := range command_map {
+			help_list[i] = fmt.Sprintf("  %8v: %v", com, act.help)
+			i += 1
+		}
+		m.Text = "```" + strings.Join(help_list, "\n") + "```"
+	}
+	go postMessage(ws, m)
 
 }
 
