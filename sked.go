@@ -29,7 +29,6 @@ package main
 
 import (
 	"fmt"
-	"golang.org/x/net/websocket"
 	"log"
 	"os"
 	"strings"
@@ -49,7 +48,7 @@ type command struct {
 }
 
 type action struct {
-	function func(command, *websocket.Conn, Message, *state)
+	function func(command, *state) string
 	help     string
 }
 
@@ -65,7 +64,9 @@ func main() {
 		"list":    action{list, "List all the possible people that could be scheduled"},
 		"unavail": action{addUnavailable, "unavail <name> <YYYYMMDD>"},
 	}
+
 	sked_state := state{make([]string, 0), map[string]dateSet{}}
+
 	// start a websocket-based Real Time API session
 	ws, id := slackConnect(os.Args[1])
 	log.Println("sked ready, ^C exits")
@@ -84,29 +85,31 @@ func main() {
 			parts := strings.Fields(m.Text)
 			// command name is first argument
 			com_name := parts[1]
+			var msg string
 			if com_name == "help" {
-				helpAction(command_map, parts, ws, m)
+				msg = helpAction(command_map, parts)
 			} else if act, ok := command_map[com_name]; ok {
 				// if we know the command...
 				c := command{parts[1], parts[2:]}
-				act.function(c, ws, m, &sked_state)
+				msg = act.function(c, &sked_state)
 
 			} else {
 				// we don't know the command
-				m.Text = fmt.Sprintln("sorry, that does not compute")
-				go postMessage(ws, m)
+				msg = fmt.Sprintln("sorry, that does not compute")
 			}
+			m.Text = msg
+			go postMessage(ws, m)
 		}
 	}
 }
 
-func helpAction(command_map map[string]action, parts []string, ws *websocket.Conn, m Message) {
+func helpAction(command_map map[string]action, parts []string) string {
 	if len(parts) > 2 {
 		act, ok := command_map[parts[2]]
 		if ok {
-			m.Text = fmt.Sprintf("```  %v: %v```", parts[2], act.help)
+			return fmt.Sprintf("```  %v: %v```", parts[2], act.help)
 		} else {
-			m.Text = fmt.Sprintf("Unknown command %v", parts[2])
+			return fmt.Sprintf("Unknown command %v", parts[2])
 		}
 	} else if len(parts) == 2 {
 		help_list := make([]string, len(command_map))
@@ -115,32 +118,27 @@ func helpAction(command_map map[string]action, parts []string, ws *websocket.Con
 			help_list[i] = fmt.Sprintf("  %8v: %v", com, act.help)
 			i += 1
 		}
-		m.Text = "```" + strings.Join(help_list, "\n") + "```"
+		return "```" + strings.Join(help_list, "\n") + "```"
 	}
-	go postMessage(ws, m)
-
+	return "" // doesn't happen
 }
 
-func getCurrent(cc command, ws *websocket.Conn, m Message, s *state) {
-	m.Text = s.people[0]
-	go postMessage(ws, m)
+func getCurrent(cc command, s *state) string {
+	return s.people[0]
 }
 
-func addPerson(cc command, ws *websocket.Conn, m Message, s *state) {
+func addPerson(cc command, s *state) string {
 	name := cc.args[0]
 	for _, p := range s.people {
 		if p == name {
-			m.Text = "We already have a " + name + " please choose a different name"
-			go postMessage(ws, m)
-			return
+			return "We already have a " + name + " please choose a different name"
 		}
 	}
 	s.people = append(s.people, cc.args[0])
-	m.Text = name + " added"
-	go postMessage(ws, m)
+	return name + " added"
 }
 
-func addUnavailable(cc command, ws *websocket.Conn, m Message, s *state) {
+func addUnavailable(cc command, s *state) string {
 	name := cc.args[0]
 	nameExists := false
 	for _, p := range s.people {
@@ -149,16 +147,12 @@ func addUnavailable(cc command, ws *websocket.Conn, m Message, s *state) {
 		}
 	}
 	if !nameExists {
-		m.Text = fmt.Sprintf("I don't know anyone named %v", name)
-		go postMessage(ws, m)
-		return
+		return fmt.Sprintf("I don't know anyone named %v", name)
 	}
 	datestr := cc.args[1]
 	date, err := time.Parse("20060102", datestr)
 	if err != nil {
-		m.Text = fmt.Sprintf("I had trouble understanding the date %v, please use the format YYYYMMDD", datestr)
-		go postMessage(ws, m)
-		return
+		return fmt.Sprintf("I had trouble understanding the date %v, please use the format YYYYMMDD", datestr)
 	}
 	ds, found := s.unavailable[name]
 	if !found {
@@ -166,15 +160,14 @@ func addUnavailable(cc command, ws *websocket.Conn, m Message, s *state) {
 		s.unavailable[name] = ds
 	}
 	ds[date] = true
-	m.Text = fmt.Sprintf("Recorded: %v is unavailable on %v", name, date)
-	go postMessage(ws, m)
 	fmt.Println(s.unavailable)
+	return fmt.Sprintf("Recorded: %v is unavailable on %v", name, date)
 }
 
-func list(cc command, ws *websocket.Conn, m Message, s *state) {
-	m.Text = strings.Join(s.people, ", ")
+func list(cc command, s *state) (msg string) {
+	msg = strings.Join(s.people, ", ")
 	if len(s.people) == 0 {
-		m.Text = fmt.Sprintln("List is empty")
+		msg = fmt.Sprintln("List is empty")
 	}
-	go postMessage(ws, m)
+	return msg
 }
