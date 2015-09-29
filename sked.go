@@ -37,8 +37,12 @@ import (
 
 type dateSet map[time.Time]bool
 
+type person struct {
+	name string
+}
+
 type state struct {
-	people      []string
+	people      []person
 	unavailable map[string]dateSet
 }
 
@@ -65,7 +69,7 @@ func main() {
 		"unavail": action{addUnavailable, "unavail <name> <YYYYMMDD>"},
 	}
 
-	sked_state := state{make([]string, 0), map[string]dateSet{}}
+	sked_state := state{make([]person, 0), map[string]dateSet{}}
 
 	// start a websocket-based Real Time API session
 	ws, id := slackConnect(os.Args[1])
@@ -125,7 +129,7 @@ func helpAction(command_map map[string]action, parts []string) string {
 
 func getCurrent(cc command, s *state) string {
 	if len(s.people) > 0 {
-		return s.people[0]
+		return s.people[0].name
 	} else {
 		return "No one is currently scheduled"
 	}
@@ -134,11 +138,11 @@ func getCurrent(cc command, s *state) string {
 func addPerson(cc command, s *state) string {
 	name := cc.args[0]
 	for _, p := range s.people {
-		if p == name {
+		if p.name == name {
 			return "We already have a " + name + " please choose a different name"
 		}
 	}
-	s.people = append(s.people, cc.args[0])
+	s.people = append(s.people, person{cc.args[0]})
 	return name + " added"
 }
 
@@ -146,7 +150,7 @@ func addUnavailable(cc command, s *state) string {
 	name := cc.args[0]
 	nameExists := false
 	for _, p := range s.people {
-		if name == p {
+		if name == p.name {
 			nameExists = true
 		}
 	}
@@ -169,7 +173,11 @@ func addUnavailable(cc command, s *state) string {
 }
 
 func list(cc command, s *state) (msg string) {
-	msg = strings.Join(s.people, ", ")
+	people_names := make([]string, len(s.people))
+	for i, pers := range s.people {
+		people_names[i] = pers.name
+	}
+	msg = strings.Join(people_names, ", ")
 	if len(s.people) == 0 {
 		msg = fmt.Sprintf("List is empty")
 	}
