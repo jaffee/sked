@@ -124,7 +124,11 @@ func helpAction(command_map map[string]action, parts []string) string {
 }
 
 func getCurrent(cc command, s *state) string {
-	return s.people[0]
+	if len(s.people) > 0 {
+		return s.people[0]
+	} else {
+		return "No one is currently scheduled"
+	}
 }
 
 func addPerson(cc command, s *state) string {
@@ -167,7 +171,7 @@ func addUnavailable(cc command, s *state) string {
 func list(cc command, s *state) (msg string) {
 	msg = strings.Join(s.people, ", ")
 	if len(s.people) == 0 {
-		msg = fmt.Sprintln("List is empty")
+		msg = fmt.Sprintf("List is empty")
 	}
 	return msg
 }
