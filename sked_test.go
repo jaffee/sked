@@ -70,3 +70,27 @@ func TestList(t *testing.T) {
 		t.Fatalf("getCurrent returned %v instead of %v\n", msg, "List is empty")
 	}
 }
+
+func TestRemovePerson(t *testing.T) {
+	cc := command{"remove", []string{"hello"}}
+	s := &state{[]person{{"hello"}, {"goodbye"}}, map[string]dateSet{}}
+	msg := removePerson(cc, s)
+	if len(s.people) != 1 {
+		t.Fatalf("Should be 1 person left but there are %v", len(s.people))
+	} else if s.people[0].name != "goodbye" {
+		t.Fatalf("Person remaining in list should be goodbye, but is %v", s.people[0].name)
+	} else if msg != "'hello' was removed from the list!" {
+		t.Fatalf("msg is wrong - it is: %v", msg)
+	}
+
+	cc = command{"remove", []string{"blah"}}
+	s = &state{[]person{{"hello"}, {"goodbye"}}, map[string]dateSet{}}
+	msg = removePerson(cc, s)
+	if len(s.people) != 2 {
+		t.Fatalf("Should be 2 people left but there are %v", len(s.people))
+	} else if s.people[0].name != "hello" {
+		t.Fatalf("First person in list should be hello, but is %v", s.people[0].name)
+	} else if msg != "Could not find 'blah'" {
+		t.Fatalf("msg is wrong - it is: %v", msg)
+	}
+}

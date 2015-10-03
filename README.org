@@ -3,11 +3,11 @@ Scheduling slackbot based on https://github.com/rapidloop/mybot
 
 * Capabilities
 
-** Add people to the schedule
+** DONE Add people to the schedule
 
-** List everyone on the schedule
+** DONE List everyone on the schedule
 
-** Get the current scheduled person
+** DONE Get the current scheduled person
 
 ** TODO Get the scheduled person for a specified date/time
 
@@ -19,6 +19,7 @@ Scheduling slackbot based on https://github.com/rapidloop/mybot
 
 ** DONE Mark a person as unavailable for certain times
 
+
 ** TODO notify a channel of who is responsible for support when it changes - or at a specified interval
 
 ** TODO notify the person who is scheduled in advance of their shift
@@ -27,8 +28,8 @@ Scheduling slackbot based on https://github.com/rapidloop/mybot
 
 ** DONE Make help messages available
 
-** TODO refactor action functions to make them more testable.
+** DONE refactor action functions to make them more testable.
 Probably just have them return a string which will be the message to
 send, and no longer take in websock.Conn and Message
 
-** TODO write tests
+** DONE write tests

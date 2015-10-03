@@ -168,7 +168,6 @@ func addUnavailable(cc command, s *state) string {
 		s.unavailable[name] = ds
 	}
 	ds[date] = true
-	fmt.Println(s.unavailable)
 	return fmt.Sprintf("Recorded: %v is unavailable on %v", name, date)
 }
 
@@ -182,4 +181,14 @@ func list(cc command, s *state) (msg string) {
 		msg = fmt.Sprintf("List is empty")
 	}
 	return msg
+}
+
+func removePerson(cc command, s *state) (msg string) {
+	for i, p := range s.people {
+		if p.name == cc.args[0] {
+			s.people = append(s.people[:i], s.people[i+1:]...)
+			return fmt.Sprintf("'%v' was removed from the list!", cc.args[0])
+		}
+	}
+	return fmt.Sprintf("Could not find '%v'", cc.args[0])
 }
