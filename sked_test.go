@@ -6,8 +6,8 @@ import (
 )
 
 func TestGetCurrent(t *testing.T) {
-	s := &state{[]person{person{"hello"}, person{"goodbye"}}, map[string]dateSet{}}
 	cc := command{}
+	s := &state{[]person{{"hello"}, {"goodbye"}}, map[string]dateSet{}}
 	curr := getCurrent(cc, s)
 	if curr != "hello" {
 		t.Fatalf("getCurrent returned %v instead of %v\n", curr, "hello")
@@ -15,8 +15,8 @@ func TestGetCurrent(t *testing.T) {
 }
 
 func TestGetCurrentFail(t *testing.T) {
-	s := &state{[]person{}, map[string]dateSet{}}
 	cc := command{}
+	s := &state{[]person{}, map[string]dateSet{}}
 	curr := getCurrent(cc, s)
 	if curr != "No one is currently scheduled" {
 		t.Fatalf("getCurrent on empty list failed. Resp: %v", curr)
@@ -24,8 +24,8 @@ func TestGetCurrentFail(t *testing.T) {
 }
 
 func TestAddPerson(t *testing.T) {
-	s := &state{[]person{person{"hello"}, person{"goodbye"}}, map[string]dateSet{}}
 	cc := command{"add", []string{"johann"}}
+	s := &state{[]person{{"hello"}, {"goodbye"}}, map[string]dateSet{}}
 	am := addPerson(cc, s)
 	if am != "johann added" {
 		t.Fatalf("add Person returned an unexpected message '%v' instead of 'johann added'", am)
@@ -36,8 +36,8 @@ func TestAddPerson(t *testing.T) {
 }
 
 func TestAddUnavailable(t *testing.T) {
-	s := &state{[]person{person{"bill"}, person{"johann"}}, map[string]dateSet{}}
 	cc := command{"addUnavailable", []string{"johann", "20150425"}}
+	s := &state{[]person{{"bill"}, {"johann"}}, map[string]dateSet{}}
 	uam := addUnavailable(cc, s)
 	if uam != "Recorded: johann is unavailable on 2015-04-25 00:00:00 +0000 UTC" {
 		t.Fatalf("Unexpected response from addUnavailable: %v", uam)
@@ -58,8 +58,8 @@ func TestAddUnavailable(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	s := &state{[]person{person{"hello"}, person{"goodbye"}}, map[string]dateSet{}}
 	cc := command{}
+	s := &state{[]person{{"hello"}, {"goodbye"}}, map[string]dateSet{}}
 	msg := list(cc, s)
 	if msg != "hello, goodbye" {
 		t.Fatalf("getCurrent returned %v instead of %v\n", msg, "hello, goodbye")
