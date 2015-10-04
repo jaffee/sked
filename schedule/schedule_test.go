@@ -9,7 +9,7 @@ func TestGetLastWeekday(t *testing.T) {
 	loc, _ := time.LoadLocation("America/Chicago")
 	start := time.Date(2015, time.October, 11, 22, 3, 0, 0, loc)
 	lwd := getLastWeekday(start, time.Wednesday)
-	if lwd.Time != time.Date(2015, time.October, 7, 0, 0, 0, 0, loc) {
+	if lwd != time.Date(2015, time.October, 7, 0, 0, 0, 0, loc) {
 		t.Fatalf("Last Wednesday came back as '%v'", lwd)
 	}
 }
@@ -18,7 +18,7 @@ func TestGetLastWeekdaySameDay(t *testing.T) {
 	loc, _ := time.LoadLocation("America/Chicago")
 	start := time.Date(2015, time.October, 7, 22, 3, 0, 0, loc)
 	lwd := getLastWeekday(start, time.Wednesday)
-	if lwd.Time != time.Date(2015, time.October, 7, 0, 0, 0, 0, loc) {
+	if lwd != time.Date(2015, time.October, 7, 0, 0, 0, 0, loc) {
 		t.Fatalf("Last Wednesday came back as '%v'", lwd)
 	}
 }
@@ -54,8 +54,8 @@ func TestGetWeeklyShifts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error parsing date for expected")
 		}
-		expectedShifts[i].Start = myTime{dStart}
-		expectedShifts[i].End = myTime{dEnd}
+		expectedShifts[i].Start = dStart
+		expectedShifts[i].End = dEnd
 	}
 	for i, s := range shifts {
 		if !expectedShifts[i].Equal(s) {
