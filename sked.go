@@ -29,10 +29,15 @@ package main
 
 import (
 	"fmt"
+	"github.com/jaffee/sked/schedule"
 	"log"
 	"os"
 	"strings"
 	"time"
+)
+
+const (
+	Week = time.Hour * 7 * 24
 )
 
 type dateSet map[time.Time]bool
@@ -41,9 +46,19 @@ type person struct {
 	name string
 }
 
+type Shift struct {
+	schedule.Shift
+	p person
+}
+
+func (sh Shift) String() string {
+	return fmt.Sprintf("%v: %v to %v", sh.p.name, sh.Start(), sh.End())
+}
+
 type state struct {
 	people      []person
 	unavailable map[string]dateSet
+	//	commandHist []command // coming soon!
 }
 
 type command struct {
@@ -63,10 +78,11 @@ func main() {
 	}
 
 	command_map := map[string]action{
-		"current": action{getCurrent, "Tell me who's scheduled right now"},
-		"add":     action{addPerson, "Add a new person to be scheduled"},
-		"list":    action{list, "List all the possible people that could be scheduled"},
-		"unavail": action{addUnavailable, "unavail <name> <YYYYMMDD>"},
+		"current":  action{getCurrent, "Tell me who's scheduled right now"},
+		"add":      action{addPerson, "Add a new person to be scheduled"},
+		"list":     action{list, "List all the possible people that could be scheduled"},
+		"unavail":  action{addUnavailable, "unavail <name> <YYYYMMDD>"},
+		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
 	}
 
 	sked_state := state{make([]person, 0), map[string]dateSet{}}
@@ -191,4 +207,55 @@ func removePerson(cc command, s *state) (msg string) {
 		}
 	}
 	return fmt.Sprintf("Could not find '%v'", cc.args[0])
+}
+
+func getSchedule(cc command, s *state) (msg string) {
+	sched := buildSchedule(time.Now(), time.Now().Add(Week*10), time.Wednesday, s)
+	sched_strings := make([]string, len(sched))
+	for i, t := range sched {
+		sched_strings[i] = t.String()
+	}
+	return "```" + strings.Join(sched_strings, "\n") + "```"
+}
+
+func buildSchedule(start time.Time, until time.Time, offset time.Weekday, s *state) []Shift {
+	shifts := schedule.GetWeeklyShifts(start, until, offset)
+	sched := populateSchedule(shifts, s)
+	return sched
+}
+
+// Given a list of shifts (start and end times) and a list of people
+// with their availabilities, assign a person to each shift as fairly
+// as possible.
+func populateSchedule(shifts []schedule.Shift, s *state) []Shift {
+	pshifts := make([]Shift, len(shifts))
+	people := make([]person, len(s.people))
+	copy(people, s.people)
+	for i, sh := range shifts {
+		curShift := Shift{}
+		curShift.Shift = sh
+		for j, p := range people {
+			if isAvailable(sh.Start(), sh.End(), s.unavailable[p.name]) {
+				curShift.p = p
+				for k := j + 1; k < len(people); k++ {
+					people[k-1] = people[k]
+				}
+				people[len(people)-1] = p
+				break
+			}
+		}
+		pshifts[i] = curShift
+	}
+	return pshifts
+}
+
+// Return true if none of the dates in `unavailable` are between start
+// and end
+func isAvailable(start time.Time, end time.Time, unavailable dateSet) bool {
+	for t, _ := range unavailable {
+		if t.Before(end) && t.After(start) {
+			return false
+		}
+	}
+	return true
 }

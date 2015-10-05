@@ -94,3 +94,20 @@ func TestRemovePerson(t *testing.T) {
 		t.Fatalf("msg is wrong - it is: %v", msg)
 	}
 }
+
+func TestIsAvailable(t *testing.T) {
+	loc, _ := time.LoadLocation("America/Chicago")
+	start := time.Date(2015, time.October, 10, 0, 0, 0, 0, loc)
+	end := time.Date(2015, time.October, 12, 0, 0, 0, 0, loc)
+	ds := dateSet{time.Date(2015, time.October, 11, 0, 0, 0, 0, loc): true}
+	ret := isAvailable(start, end, ds)
+	if ret {
+		t.Fatalf("Should not be available, but returned true")
+	}
+	ds = dateSet{time.Date(2015, time.October, 13, 0, 0, 0, 0, loc): true}
+	ret = isAvailable(start, end, ds)
+	if !ret {
+		t.Fatalf("Should be available, but returned false")
+	}
+
+}
