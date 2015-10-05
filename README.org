@@ -11,11 +11,11 @@ Scheduling slackbot based on https://github.com/rapidloop/mybot
 
 ** TODO Get the scheduled person for a specified date/time
 
-** TODO Get the schedule from time X to time Y
+** DONE Get the schedule
 
 ** TODO Schedule a person for a certain time
 
-** TODO Remove people from the schedule
+** DONE Remove people from the schedule
 
 ** DONE Mark a person as unavailable for certain times
 
@@ -33,3 +33,10 @@ Probably just have them return a string which will be the message to
 send, and no longer take in websock.Conn and Message
 
 ** DONE write tests
+** TODO move unavailability tracking onto person struct
+Then make isAvailable a method on that struct
+** TODO test scheduling methods
+** TODO increase fairness of scheduling
+** TODO track all commands entered
+** TODO track all past shifts
+** TODO persist data
