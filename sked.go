@@ -29,36 +29,37 @@ package main
 
 import (
 	"fmt"
-	"github.com/jaffee/sked/schedule"
+	"github.com/jaffee/sked/scheduling"
 	"log"
 	"os"
 	"strings"
 	"time"
 )
 
-const (
-	Week = time.Hour * 7 * 24
-)
-
-type dateSet map[time.Time]bool
-
-type person struct {
-	name string
-}
-
-type Shift struct {
-	schedule.Shift
-	p person
-}
-
-func (sh Shift) String() string {
-	return fmt.Sprintf("%v: %v to %v", sh.p.name, sh.Start(), sh.End())
-}
-
 type state struct {
-	people      []person
-	unavailable map[string]dateSet
-	//	commandHist []command // coming soon!
+	people map[string]*person
+	offset time.Weekday
+}
+
+func (s *state) BuildSchedule() scheduling.Schedule {
+	sched := NewSchedule(len(s.people))
+	i := 0
+	for _, p := range s.people {
+		aShift := shift{}
+		aShift.SetWorker(p)
+		sched.shifts[i] = &aShift
+		i += 1
+	}
+	return sched
+}
+
+func NewState() state {
+	// Wednesday is the default for offset... makes sense right?
+	s := state{
+		people: make(map[string]*person),
+		offset: time.Wednesday,
+	}
+	return s
 }
 
 type command struct {
@@ -81,11 +82,11 @@ func main() {
 		"current":  action{getCurrent, "Tell me who's scheduled right now"},
 		"add":      action{addPerson, "Add a new person to be scheduled"},
 		"list":     action{list, "List all the possible people that could be scheduled"},
-		"unavail":  action{addUnavailable, "unavail <name> <YYYYMMDD>"},
+		"unavail":  action{addUnavailable, "unavail <name> <[YYYY]MMDD[HH]> [to [YYYY]MMDD[HH]]"},
 		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
 	}
 
-	sked_state := state{make([]person, 0), map[string]dateSet{}}
+	sked_state := NewState()
 
 	// start a websocket-based Real Time API session
 	ws, id := slackConnect(os.Args[1])
@@ -144,53 +145,77 @@ func helpAction(command_map map[string]action, parts []string) string {
 }
 
 func getCurrent(cc command, s *state) string {
-	if len(s.people) > 0 {
-		return s.people[0].name
-	} else {
-		return "No one is currently scheduled"
-	}
+	return "Not currently implemented"
 }
 
 func addPerson(cc command, s *state) string {
 	name := cc.args[0]
-	for _, p := range s.people {
-		if p.name == name {
-			return "We already have a " + name + " please choose a different name"
-		}
+	if _, ok := s.people[name]; ok {
+		return "We already have a " + name + " please choose a different name"
 	}
-	s.people = append(s.people, person{cc.args[0]})
+	s.people[name] = NewPerson(name)
 	return name + " added"
 }
 
 func addUnavailable(cc command, s *state) string {
 	name := cc.args[0]
-	nameExists := false
-	for _, p := range s.people {
-		if name == p.name {
-			nameExists = true
-		}
-	}
-	if !nameExists {
+	p, ok := s.people[name]
+	if !ok {
 		return fmt.Sprintf("I don't know anyone named %v", name)
 	}
-	datestr := cc.args[1]
-	date, err := time.Parse("20060102", datestr)
+	startDate, err := getDate(cc.args[1])
+	var endDate time.Time
 	if err != nil {
-		return fmt.Sprintf("I had trouble understanding the date %v, please use the format YYYYMMDD", datestr)
+		return fmt.Sprintf("I had trouble understanding the date %v, please use the format [YYYY]MMDD[HH]", cc.args[1])
 	}
-	ds, found := s.unavailable[name]
-	if !found {
-		ds = dateSet{}
-		s.unavailable[name] = ds
+	if len(cc.args) == 4 {
+		endDate, err = getDate(cc.args[3])
+		if err != nil {
+			return fmt.Sprintf("I had trouble understanding the date %v, please use the format [YYYY]MMDD[HH]", cc.args[1])
+		}
+	} else {
+		switch len(cc.args[1]) {
+		case 4, 8:
+			endDate = startDate.Add(time.Hour * 24)
+		case 6, 10:
+			endDate = startDate.Add(time.Hour)
+		}
 	}
-	ds[date] = true
-	return fmt.Sprintf("Recorded: %v is unavailable on %v", name, date)
+	aShift, err := NewShift(startDate, endDate)
+	if err != nil {
+		return fmt.Sprintf("Your end time:%v is before your start time:%v", endDate, startDate)
+	}
+	p.AddUnavailable(aShift)
+	return fmt.Sprintf("Recorded: %v is unavailable from %v to %v", name, startDate, endDate)
+}
+
+// Given a string representing
+func getDate(dateStr string) (time.Time, error) {
+	var date time.Time
+	var err error
+	switch len(dateStr) {
+	case 4:
+		date, err = time.Parse("0102", dateStr)
+	case 6:
+		date, err = time.Parse("010215", dateStr)
+	case 8:
+		date, err = time.Parse("20060102", dateStr)
+	case 10:
+		date, err = time.Parse("2006010215", dateStr)
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return date, nil
+
 }
 
 func list(cc command, s *state) (msg string) {
 	people_names := make([]string, len(s.people))
-	for i, pers := range s.people {
-		people_names[i] = pers.name
+	i := 0
+	for name, _ := range s.people {
+		people_names[i] = name
+		i += 1
 	}
 	msg = strings.Join(people_names, ", ")
 	if len(s.people) == 0 {
@@ -200,62 +225,17 @@ func list(cc command, s *state) (msg string) {
 }
 
 func removePerson(cc command, s *state) (msg string) {
-	for i, p := range s.people {
-		if p.name == cc.args[0] {
-			s.people = append(s.people[:i], s.people[i+1:]...)
-			return fmt.Sprintf("'%v' was removed from the list!", cc.args[0])
-		}
+	name := cc.args[0]
+	_, ok := s.people[name]
+	if !ok {
+		return fmt.Sprintf("Could not find '%v'", name)
+	} else {
+		delete(s.people, name)
+		return fmt.Sprintf("'%v' was removed from the list!", name)
 	}
-	return fmt.Sprintf("Could not find '%v'", cc.args[0])
 }
 
 func getSchedule(cc command, s *state) (msg string) {
-	sched := buildSchedule(time.Now(), time.Now().Add(Week*10), time.Wednesday, s)
-	sched_strings := make([]string, len(sched))
-	for i, t := range sched {
-		sched_strings[i] = t.String()
-	}
-	return "```" + strings.Join(sched_strings, "\n") + "```"
-}
-
-func buildSchedule(start time.Time, until time.Time, offset time.Weekday, s *state) []Shift {
-	shifts := schedule.GetWeeklyShifts(start, until, offset)
-	sched := populateSchedule(shifts, s)
-	return sched
-}
-
-// Given a list of shifts (start and end times) and a list of people
-// with their availabilities, assign a person to each shift as fairly
-// as possible.
-func populateSchedule(shifts []schedule.Shift, s *state) []Shift {
-	pshifts := make([]Shift, len(shifts))
-	people := make([]person, len(s.people))
-	copy(people, s.people)
-	for i, sh := range shifts {
-		curShift := Shift{}
-		curShift.Shift = sh
-		for j, p := range people {
-			if isAvailable(sh.Start(), sh.End(), s.unavailable[p.name]) {
-				curShift.p = p
-				for k := j + 1; k < len(people); k++ {
-					people[k-1] = people[k]
-				}
-				people[len(people)-1] = p
-				break
-			}
-		}
-		pshifts[i] = curShift
-	}
-	return pshifts
-}
-
-// Return true if none of the dates in `unavailable` are between start
-// and end
-func isAvailable(start time.Time, end time.Time, unavailable dateSet) bool {
-	for t, _ := range unavailable {
-		if t.Before(end) && t.After(start) {
-			return false
-		}
-	}
-	return true
+	sched := s.BuildSchedule()
+	return "```" + sched.String() + "```"
 }

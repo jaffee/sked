@@ -1,4 +1,4 @@
-package schedule
+package scheduling
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ func TestGetWeeklyShifts(t *testing.T) {
 	loc, _ := time.LoadLocation("America/Chicago")
 	start := time.Date(2015, time.October, 11, 22, 3, 0, 0, loc)
 	until := time.Date(2015, time.November, 5, 14, 1, 0, 0, loc)
-	shifts := getWeeklyShifts(start, until, time.Wednesday)
+	shifts := GetWeeklyShifts(start, until, time.Wednesday)
 	if len(shifts) != 5 {
 		t.Fatalf("Wrong number of shifts: %v", shifts)
 	}
@@ -61,5 +61,30 @@ func TestGetWeeklyShifts(t *testing.T) {
 		if !expectedShifts[i].Equal(s) {
 			t.Fatalf("Output failed to match at index:%v, \nexpected:%vactual:  %v", i, expectedShifts[i], s)
 		}
+	}
+}
+
+func TestNewShift(t *testing.T) {
+	loc, _ := time.LoadLocation("America/Chicago")
+	s := NewShift(time.Date(2015, time.April, 5, 0, 0, 0, 0, loc), time.Date(2015, time.April, 8, 0, 0, 0, 0, loc))
+	if sta := s.Start(); sta != time.Date(2015, time.April, 5, 0, 0, 0, 0, loc) {
+		t.Fatalf("Unexpected behavior from Shift - s.Start: %v", sta)
+	}
+	if end := s.End(); end != time.Date(2015, time.April, 8, 0, 0, 0, 0, loc) {
+		t.Fatalf("Unexpected behavior from Shift - s.End: %v", end)
+	}
+}
+
+func TestOverlaps(t *testing.T) {
+	loc, _ := time.LoadLocation("America/Chicago")
+	s1 := NewShift(time.Date(2015, time.April, 5, 0, 0, 0, 0, loc), time.Date(2015, time.April, 8, 0, 0, 0, 0, loc))
+	s2 := NewShift(time.Date(2015, time.April, 2, 0, 0, 0, 0, loc), time.Date(2015, time.April, 9, 0, 0, 0, 0, loc))
+	if !s1.Overlaps(s2) {
+		t.Fatalf("s2 completely covers s1 - these should overlap")
+	}
+	s1 = NewShift(time.Date(2015, time.April, 5, 0, 0, 0, 0, loc), time.Date(2015, time.April, 8, 0, 0, 0, 0, loc))
+	s2 = NewShift(time.Date(2015, time.April, 2, 0, 0, 0, 0, loc), time.Date(2015, time.April, 5, 0, 0, 0, 0, loc))
+	if s1.Overlaps(s2) {
+		t.Fatalf("s2 bumps up against s1 - these should not overlap")
 	}
 }

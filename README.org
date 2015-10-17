@@ -40,3 +40,36 @@ Then make isAvailable a method on that struct
 ** TODO track all commands entered
 ** TODO track all past shifts
 ** TODO persist data
+
+
+* 2.0 design
+
+** Configuration
+
+*** lists
+Lists of Schedulable things, i.e. Support Engineers
+- default list
+- associated actions
+- schedule parameters - i.e. weekly, daily, offset
+
+** interface Schedulable
+*** isAvailable(start time.Time, end time.Time)
+
+* Notes
+** schedule building
+For each schedule slot (starting with the nearest):
+    Determine a priority for each person.
+    Put the highest priority person (who is available) in the slot.
+
+** priority determination
+- Cannot schedule someone for 2 slots in a row. (unless there is no
+  other choice)
+- Should be the person who has worked least recently
+
+*** proposal
+start everyone at the same priority (int)
+
+when you work a shift your priority increases by num_people. When you don't
+work a shift, your priority decreases by 1.
+
+The person with the lowest priority works (if they are available).
