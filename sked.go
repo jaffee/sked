@@ -28,10 +28,12 @@ THE SOFTWARE.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jaffee/sked/scheduling"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -41,16 +43,77 @@ type state struct {
 	offset time.Weekday
 }
 
-func (s *state) BuildSchedule() scheduling.Schedule {
-	sched := NewSchedule(len(s.people))
-	i := 0
-	for _, p := range s.people {
-		aShift := shift{}
-		aShift.SetWorker(p)
-		sched.shifts[i] = &aShift
-		i += 1
+func (s *state) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
+	sched := NewSchedule(start, end, s.offset)
+	personList := tempPersonList(s.people)
+	for _, cur_shift := range sched.Shifts() {
+
+		// find person with lowest priority who is available
+		np, err := nextAvailable(personList, cur_shift)
+		if err != nil {
+			np = &person{name: "EMPTY!"}
+		}
+
+		cur_shift.SetWorker(s.people[np.name])
+
+		// re-calc priorities
+		fmt.Println("before loop")
+		fmt.Println(personList)
+		for _, p := range personList {
+			if p.Identifier() != np.Identifier() {
+				p.DecPriority(1)
+			} else {
+				p.IncPriority(len(personList))
+			}
+			fmt.Println(p, p.Priority())
+		}
+		fmt.Println("after loop")
+		fmt.Println(personList)
 	}
 	return sched
+}
+
+type ByPriority []*person
+
+func (b ByPriority) Len() int      { return len(b) }
+func (b ByPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b ByPriority) Less(i, j int) bool {
+	if b[i].Priority() == b[j].Priority() {
+		return b[i].Identifier() < b[j].Identifier()
+	} else {
+		return b[i].Priority() < b[j].Priority()
+	}
+}
+
+func nextAvailable(personList []*person, cur_shift scheduling.Shift) (*person, error) {
+	sort.Sort(ByPriority(personList))
+	var np *person
+	found := false
+	for _, p := range personList {
+		if p.IsAvailable(cur_shift) {
+			np = p
+			found = true
+			break
+		}
+	}
+	if found {
+		return np, nil
+	} else {
+		return &person{}, errors.New("Could not find anyone to work the shift")
+	}
+}
+
+func tempPersonList(people map[string]*person) []*person {
+	personList := make([]*person, len(people))
+	i := 0
+	for _, p := range people {
+		personList[i] = &person{}
+		personList[i].name = p.name
+		personList[i].unavailability = p.unavailability
+		personList[i].priority = p.priority
+		i += 1
+	}
+	return personList
 }
 
 func NewState() state {
@@ -236,6 +299,6 @@ func removePerson(cc command, s *state) (msg string) {
 }
 
 func getSchedule(cc command, s *state) (msg string) {
-	sched := s.BuildSchedule()
+	sched := s.BuildSchedule(time.Now(), time.Now().Add(time.Hour*24*7*10))
 	return "```" + sched.String() + "```"
 }

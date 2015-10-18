@@ -3,14 +3,15 @@ package main
 import (
 	"github.com/jaffee/sked/scheduling"
 	"strings"
+	"time"
 )
 
 type schedule struct {
 	shifts []*shift
 }
 
-func NewSchedule(length int) *schedule {
-	return &schedule{shifts: make([]*shift, length)}
+func NewSchedule(start time.Time, end time.Time, offset time.Weekday) *schedule {
+	return &schedule{shifts: GetWeeklyShifts(start, end, offset)}
 }
 
 func (sched *schedule) Current() scheduling.Schedulable {
@@ -24,4 +25,8 @@ func (sched *schedule) String() string {
 	}
 	return strings.Join(sched_strings, "\n")
 
+}
+
+func (sched *schedule) Shifts() []*shift {
+	return sched.shifts
 }
