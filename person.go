@@ -28,7 +28,7 @@ func (p *person) IsAvailable(s scheduling.Shift) bool {
 }
 
 func (p *person) AddUnavailable(s scheduling.Shift) {
-	p.unavailability = append(p.unavailability)
+	p.unavailability = append(p.unavailability, s)
 }
 
 func (p *person) Identifier() string {
