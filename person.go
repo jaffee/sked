@@ -8,6 +8,7 @@ type person struct {
 	name           string
 	unavailability []scheduling.Shift
 	priority       int
+	orderNum       int
 }
 
 func NewPerson(name string) *person {
@@ -45,4 +46,12 @@ func (p *person) IncPriority(amnt int) {
 
 func (p *person) DecPriority(amnt int) {
 	p.priority -= amnt
+}
+
+func (p *person) Ordering() int {
+	return p.orderNum
+}
+
+func (p *person) SetOrdering(value int) {
+	p.orderNum = value
 }

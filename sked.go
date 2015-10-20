@@ -35,6 +35,7 @@ import (
 	"log"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -80,7 +81,11 @@ func (b ByPriority) Len() int      { return len(b) }
 func (b ByPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 func (b ByPriority) Less(i, j int) bool {
 	if b[i].Priority() == b[j].Priority() {
-		return b[i].Identifier() < b[j].Identifier()
+		if b[i].Ordering() == b[j].Ordering() {
+			return b[i].Identifier() < b[j].Identifier()
+		} else {
+			return b[i].Ordering() < b[j].Ordering()
+		}
 	} else {
 		return b[i].Priority() < b[j].Priority()
 	}
@@ -112,6 +117,7 @@ func tempPersonList(people map[string]*person) []*person {
 		personList[i].name = p.name
 		personList[i].unavailability = p.unavailability
 		personList[i].priority = p.priority
+		personList[i].orderNum = p.orderNum
 		i += 1
 	}
 	return personList
@@ -160,7 +166,8 @@ func main() {
 	// set up state
 	command_map := map[string]action{
 		"current":  action{getCurrent, "Tell me who's scheduled right now"},
-		"add":      action{addPerson, "Add a new person to be scheduled"},
+		"add":      action{addPerson, "Add a new person to be scheduled. add <name> [ordering_num]"},
+		"remove":   action{removePerson, "Remove a person from scheduling. remove <name>"},
 		"list":     action{list, "List all the possible people that could be scheduled"},
 		"unavail":  action{addUnavailable, "unavail <name> <[YYYY]MMDD[HH]> [to [YYYY]MMDD[HH]]"},
 		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
@@ -258,7 +265,16 @@ func addPerson(cc command, s *state) string {
 		return "We already have a " + name + " please choose a different name"
 	}
 	s.people[name] = NewPerson(name)
-	return name + " added"
+	if len(cc.args) > 1 {
+		ordering64, err := strconv.ParseInt(cc.args[1], 0, 32)
+		if err != nil {
+			return fmt.Sprintf("Couldn't understand the number you passed in: %v", cc.args[1])
+		}
+		ordering := int(ordering64)
+		s.people[name].SetOrdering(ordering)
+	}
+
+	return fmt.Sprintf("%v add with ordering %v", name, s.people[name].Ordering())
 }
 
 func addUnavailable(cc command, s *state) string {

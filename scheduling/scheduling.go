@@ -47,6 +47,10 @@ type Schedulable interface {
 	Priority() int
 	IncPriority(amnt int)
 	DecPriority(amnt int)
+
+	// Ordering to be used if priorities are the same
+	Ordering() int
+	SetOrdering(value int)
 }
 
 type Scheduleables interface {
