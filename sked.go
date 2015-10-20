@@ -28,6 +28,7 @@ THE SOFTWARE.
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"github.com/jaffee/sked/scheduling"
@@ -116,11 +117,11 @@ func tempPersonList(people map[string]*person) []*person {
 	return personList
 }
 
-func NewState() state {
+func NewState(offset time.Weekday) state {
 	// Wednesday is the default for offset... makes sense right?
 	s := state{
 		people: make(map[string]*person),
-		offset: time.Wednesday,
+		offset: offset,
 	}
 	return s
 }
@@ -135,12 +136,28 @@ type action struct {
 	help     string
 }
 
+func writeHandler(comChan chan string, w *bufio.Writer) {
+	for {
+		s := <-comChan + "\n"
+		fmt.Println("Writing", s, []byte(s))
+		n, err := w.Write([]byte(s))
+		w.Flush()
+		fmt.Println(n, "bytes written")
+		if err != nil {
+			log.Printf("Problem while writing, err:%v", err)
+			// TODO - set up some kind of recovery, or at least notify slack of failure
+			panic(err)
+		}
+	}
+}
+
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: sked <slack-bot-token>\n")
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "Usage: sked <slack-bot-token> [state-file]\n")
 		os.Exit(1)
 	}
 
+	// set up state
 	command_map := map[string]action{
 		"current":  action{getCurrent, "Tell me who's scheduled right now"},
 		"add":      action{addPerson, "Add a new person to be scheduled"},
@@ -148,13 +165,34 @@ func main() {
 		"unavail":  action{addUnavailable, "unavail <name> <[YYYY]MMDD[HH]> [to [YYYY]MMDD[HH]]"},
 		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
 	}
+	sked_state := NewState(time.Wednesday)
 
-	sked_state := NewState()
+	// Output file handling
+	var filename string
+	var stateFile *os.File
+	if len(os.Args) >= 3 {
+		filename = os.Args[2]
+	} else {
+		filename = "sked-log.txt"
+	}
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		stateFile, err = os.Create(filename)
+		if err != nil {
+			log.Fatalf("Could not open file: %v, error: %v", filename, err)
+		}
+		defer stateFile.Close()
+	} else {
+		log.Fatalf("File already exists - won't truncate. TODO maybe we should try to replay it??")
+	}
+	w := bufio.NewWriter(stateFile)
+	comChan := make(chan string)
+	go writeHandler(comChan, w)
 
 	// start a websocket-based Real Time API session
 	ws, id := slackConnect(os.Args[1])
 	log.Println("sked ready, ^C exits")
 
+	// main loop
 	for {
 		// read each incoming message
 		m, err := getMessage(ws)
@@ -170,13 +208,16 @@ func main() {
 			// command name is first argument
 			com_name := parts[1]
 			var msg string
+
+			// 'help' is treated specially
 			if com_name == "help" {
 				msg = helpAction(command_map, parts)
 			} else if act, ok := command_map[com_name]; ok {
 				// if we know the command...
+				// write to command log
+				comChan <- m.Text
 				c := command{parts[1], parts[2:]}
 				msg = act.function(c, &sked_state)
-
 			} else {
 				// we don't know the command
 				msg = fmt.Sprintln("sorry, that does not compute")
