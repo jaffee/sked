@@ -29,108 +29,13 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"github.com/jaffee/sked/scheduling"
 	"log"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
-
-type state struct {
-	people map[string]*person
-	offset time.Weekday
-}
-
-func (s *state) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
-	sched := NewSchedule(start, end, s.offset)
-	personList := tempPersonList(s.people)
-	for _, cur_shift := range sched.Shifts() {
-
-		// find person with lowest priority who is available
-		np, err := nextAvailable(personList, cur_shift)
-		if err != nil {
-			np = &person{name: "EMPTY!"}
-		}
-
-		cur_shift.SetWorker(s.people[np.name])
-
-		// re-calc priorities
-		fmt.Println("before loop")
-		fmt.Println(personList)
-		for _, p := range personList {
-			if p.Identifier() != np.Identifier() {
-				p.DecPriority(1)
-			} else {
-				p.IncPriority(len(personList))
-			}
-			fmt.Println(p, p.Priority())
-		}
-		fmt.Println("after loop")
-		fmt.Println(personList)
-	}
-	return sched
-}
-
-type ByPriority []*person
-
-func (b ByPriority) Len() int      { return len(b) }
-func (b ByPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
-func (b ByPriority) Less(i, j int) bool {
-	if b[i].Priority() == b[j].Priority() {
-		if b[i].Ordering() == b[j].Ordering() {
-			return b[i].Identifier() < b[j].Identifier()
-		} else {
-			return b[i].Ordering() < b[j].Ordering()
-		}
-	} else {
-		return b[i].Priority() < b[j].Priority()
-	}
-}
-
-func nextAvailable(personList []*person, cur_shift scheduling.Shift) (*person, error) {
-	sort.Sort(ByPriority(personList))
-	var np *person
-	found := false
-	for _, p := range personList {
-		if p.IsAvailable(cur_shift) {
-			np = p
-			found = true
-			break
-		}
-	}
-	if found {
-		return np, nil
-	} else {
-		return &person{}, errors.New("Could not find anyone to work the shift")
-	}
-}
-
-func tempPersonList(people map[string]*person) []*person {
-	personList := make([]*person, len(people))
-	i := 0
-	for _, p := range people {
-		personList[i] = &person{}
-		personList[i].name = p.name
-		personList[i].unavailability = p.unavailability
-		personList[i].priority = p.priority
-		personList[i].orderNum = p.orderNum
-		i += 1
-	}
-	return personList
-}
-
-func NewState(offset time.Weekday) state {
-	// Wednesday is the default for offset... makes sense right?
-	s := state{
-		people: make(map[string]*person),
-		offset: offset,
-	}
-	return s
-}
 
 type command struct {
 	action string
@@ -142,9 +47,9 @@ type action struct {
 	help     string
 }
 
-func writeHandler(comChan chan string, w *bufio.Writer) {
+func writeHandler(logChan chan string, w *bufio.Writer) {
 	for {
-		s := <-comChan + "\n"
+		s := <-logChan + "\n"
 		fmt.Println("Writing", s, []byte(s))
 		n, err := w.Write([]byte(s))
 		w.Flush()
@@ -163,6 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	token := os.Args[1]
 	// set up state
 	command_map := map[string]action{
 		"current":  action{getCurrent, "Tell me who's scheduled right now"},
@@ -171,6 +77,7 @@ func main() {
 		"list":     action{list, "List all the possible people that could be scheduled"},
 		"unavail":  action{addUnavailable, "unavail <name> <[YYYY]MMDD[HH]> [to [YYYY]MMDD[HH]]"},
 		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
+		"start":    action{startScheduling, "Once you have everything set up the way you like it, tell sked to start the current shift. It will udpate itself at the end of each shift, resetting the future schedule each time."},
 	}
 	sked_state := NewState(time.Wednesday)
 
@@ -189,14 +96,19 @@ func main() {
 		}
 		defer stateFile.Close()
 	} else {
-		log.Fatalf("File already exists - won't truncate. TODO maybe we should try to replay it??")
+		// read file line by line
+		// play commands
 	}
 	w := bufio.NewWriter(stateFile)
-	comChan := make(chan string)
-	go writeHandler(comChan, w)
+	logChan := make(chan string)
+	go writeHandler(logChan, w)
 
+	run(logChan, token, command_map, sked_state)
+}
+
+func run(logChan chan string, token string, command_map map[string]action, sked_state state) {
 	// start a websocket-based Real Time API session
-	ws, id := slackConnect(os.Args[1])
+	ws, id := slackConnect(token)
 	log.Println("sked ready, ^C exits")
 
 	// main loop
@@ -204,7 +116,8 @@ func main() {
 		// read each incoming message
 		m, err := getMessage(ws)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Wasn't able to receive a message: error: %v, message: %v\n", err, m)
+			continue
 		}
 		log.Println("Received message:")
 		log.Println(m)
@@ -213,8 +126,13 @@ func main() {
 		if m.Type == "message" && strings.HasPrefix(m.Text, "<@"+id+">") {
 			parts := strings.Fields(m.Text)
 			// command name is first argument
-			com_name := parts[1]
 			var msg string
+			var com_name string
+			if len(parts) > 1 {
+				com_name = parts[1]
+			} else {
+				com_name = "help"
+			}
 
 			// 'help' is treated specially
 			if com_name == "help" {
@@ -222,7 +140,7 @@ func main() {
 			} else if act, ok := command_map[com_name]; ok {
 				// if we know the command...
 				// write to command log
-				comChan <- m.Text
+				logChan <- strings.Join(parts[1:], " ")
 				c := command{parts[1], parts[2:]}
 				msg = act.function(c, &sked_state)
 			} else {
@@ -256,7 +174,7 @@ func helpAction(command_map map[string]action, parts []string) string {
 }
 
 func getCurrent(cc command, s *state) string {
-	return "Not currently implemented"
+	return s.schedule.Current().Identifier()
 }
 
 func addPerson(cc command, s *state) string {
@@ -358,4 +276,8 @@ func removePerson(cc command, s *state) (msg string) {
 func getSchedule(cc command, s *state) (msg string) {
 	sched := s.BuildSchedule(time.Now(), time.Now().Add(time.Hour*24*7*10))
 	return "```" + sched.String() + "```"
+}
+
+func startScheduling(cc command, s *state) (msg string) {
+	return "Not yet implemented"
 }
