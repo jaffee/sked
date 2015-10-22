@@ -43,7 +43,7 @@ type command struct {
 }
 
 type action struct {
-	function func(command, *state) string
+	function func(command, *State) string
 	help     string
 }
 
@@ -52,11 +52,9 @@ func writeHandler(logChan chan string, w *bufio.Writer) {
 		s := <-logChan + "\n"
 		fmt.Println("Writing", s, []byte(s))
 		n, err := w.Write([]byte(s))
-		w.Flush()
 		fmt.Println(n, "bytes written")
 		if err != nil {
 			log.Printf("Problem while writing, err:%v", err)
-			// TODO - set up some kind of recovery, or at least notify slack of failure
 			panic(err)
 		}
 	}
@@ -70,7 +68,7 @@ func main() {
 
 	token := os.Args[1]
 	// set up state
-	command_map := map[string]action{
+	commandMap := map[string]action{
 		"current":  action{getCurrent, "Tell me who's scheduled right now"},
 		"add":      action{addPerson, "Add a new person to be scheduled. add <name> [ordering_num]"},
 		"remove":   action{removePerson, "Remove a person from scheduling. remove <name>"},
@@ -79,7 +77,8 @@ func main() {
 		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
 		"start":    action{startScheduling, "Once you have everything set up the way you like it, tell sked to start the current shift. It will udpate itself at the end of each shift, resetting the future schedule each time."},
 	}
-	sked_state := NewState(time.Wednesday)
+	skedState := NewState(time.Wednesday)
+	skedState.Populate()
 
 	// Output file handling
 	var filename string
@@ -103,10 +102,10 @@ func main() {
 	logChan := make(chan string)
 	go writeHandler(logChan, w)
 
-	run(logChan, token, command_map, sked_state)
+	run(logChan, token, commandMap, skedState)
 }
 
-func run(logChan chan string, token string, command_map map[string]action, sked_state state) {
+func run(logChan chan string, token string, command_map map[string]action, skedState State) {
 	// start a websocket-based Real Time API session
 	ws, id := slackConnect(token)
 	log.Println("sked ready, ^C exits")
@@ -142,7 +141,12 @@ func run(logChan chan string, token string, command_map map[string]action, sked_
 				// write to command log
 				logChan <- strings.Join(parts[1:], " ")
 				c := command{parts[1], parts[2:]}
-				msg = act.function(c, &sked_state)
+				msg = act.function(c, &skedState)
+				err := skedState.Persist()
+				if err != nil {
+					m.Text = fmt.Sprintf("I'm having trouble persisting my state - err: %v", err)
+					go postMessage(ws, m)
+				}
 			} else {
 				// we don't know the command
 				msg = fmt.Sprintln("sorry, that does not compute")
@@ -173,31 +177,31 @@ func helpAction(command_map map[string]action, parts []string) string {
 	return "" // doesn't happen
 }
 
-func getCurrent(cc command, s *state) string {
-	return s.schedule.Current().Identifier()
+func getCurrent(cc command, s *State) string {
+	return s.Schedule.Current().Identifier()
 }
 
-func addPerson(cc command, s *state) string {
+func addPerson(cc command, s *State) string {
 	name := cc.args[0]
-	if _, ok := s.people[name]; ok {
+	if _, ok := s.People[name]; ok {
 		return "We already have a " + name + " please choose a different name"
 	}
-	s.people[name] = NewPerson(name)
+	s.People[name] = NewPerson(name)
 	if len(cc.args) > 1 {
 		ordering64, err := strconv.ParseInt(cc.args[1], 0, 32)
 		if err != nil {
 			return fmt.Sprintf("Couldn't understand the number you passed in: %v", cc.args[1])
 		}
 		ordering := int(ordering64)
-		s.people[name].SetOrdering(ordering)
+		s.People[name].SetOrdering(ordering)
 	}
 
-	return fmt.Sprintf("%v add with ordering %v", name, s.people[name].Ordering())
+	return fmt.Sprintf("%v add with ordering %v", name, s.People[name].Ordering())
 }
 
-func addUnavailable(cc command, s *state) string {
+func addUnavailable(cc command, s *State) string {
 	name := cc.args[0]
-	p, ok := s.people[name]
+	p, ok := s.People[name]
 	if !ok {
 		return fmt.Sprintf("I don't know anyone named %v", name)
 	}
@@ -248,36 +252,36 @@ func getDate(dateStr string) (time.Time, error) {
 
 }
 
-func list(cc command, s *state) (msg string) {
-	people_names := make([]string, len(s.people))
+func list(cc command, s *State) (msg string) {
+	people_names := make([]string, len(s.People))
 	i := 0
-	for name, _ := range s.people {
+	for name, _ := range s.People {
 		people_names[i] = name
 		i += 1
 	}
 	msg = strings.Join(people_names, ", ")
-	if len(s.people) == 0 {
+	if len(s.People) == 0 {
 		msg = fmt.Sprintf("List is empty")
 	}
 	return msg
 }
 
-func removePerson(cc command, s *state) (msg string) {
+func removePerson(cc command, s *State) (msg string) {
 	name := cc.args[0]
-	_, ok := s.people[name]
+	_, ok := s.People[name]
 	if !ok {
 		return fmt.Sprintf("Could not find '%v'", name)
 	} else {
-		delete(s.people, name)
+		delete(s.People, name)
 		return fmt.Sprintf("'%v' was removed from the list!", name)
 	}
 }
 
-func getSchedule(cc command, s *state) (msg string) {
+func getSchedule(cc command, s *State) (msg string) {
 	sched := s.BuildSchedule(time.Now(), time.Now().Add(time.Hour*24*7*10))
 	return "```" + sched.String() + "```"
 }
 
-func startScheduling(cc command, s *state) (msg string) {
+func startScheduling(cc command, s *State) (msg string) {
 	return "Not yet implemented"
 }

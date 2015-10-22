@@ -53,10 +53,6 @@ type Schedulable interface {
 	SetOrdering(value int)
 }
 
-type Scheduleables interface {
-	BuildSchedule() Schedule
-}
-
 type Schedule interface {
 	Current() Schedulable
 	String() string

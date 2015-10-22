@@ -4,23 +4,23 @@ import (
 	"github.com/jaffee/sked/scheduling"
 )
 
-type person struct {
-	name           string
-	unavailability []scheduling.Shift
-	priority       int
-	orderNum       int
+type Person struct {
+	Name           string
+	Unavailability []scheduling.Shift
+	PriorityNum    int
+	OrderNum       int
 }
 
-func NewPerson(name string) *person {
-	p := person{
-		name:     name,
-		priority: 0,
+func NewPerson(name string) *Person {
+	p := Person{
+		Name:        name,
+		PriorityNum: 0,
 	}
 	return &p
 }
 
-func (p *person) IsAvailable(s scheduling.Shift) bool {
-	for _, pshift := range p.unavailability {
+func (p *Person) IsAvailable(s scheduling.Shift) bool {
+	for _, pshift := range p.Unavailability {
 		if s.Overlaps(pshift) {
 			return false
 		}
@@ -28,30 +28,46 @@ func (p *person) IsAvailable(s scheduling.Shift) bool {
 	return true
 }
 
-func (p *person) AddUnavailable(s scheduling.Shift) {
-	p.unavailability = append(p.unavailability, s)
+func (p *Person) AddUnavailable(s scheduling.Shift) {
+	p.Unavailability = append(p.Unavailability, s)
 }
 
-func (p *person) Identifier() string {
-	return p.name
+func (p *Person) Identifier() string {
+	return p.Name
 }
 
-func (p *person) Priority() int {
-	return p.priority
+func (p *Person) Priority() int {
+	return p.PriorityNum
 }
 
-func (p *person) IncPriority(amnt int) {
-	p.priority += amnt
+func (p *Person) IncPriority(amnt int) {
+	p.PriorityNum += amnt
 }
 
-func (p *person) DecPriority(amnt int) {
-	p.priority -= amnt
+func (p *Person) DecPriority(amnt int) {
+	p.PriorityNum -= amnt
 }
 
-func (p *person) Ordering() int {
-	return p.orderNum
+func (p *Person) Ordering() int {
+	return p.OrderNum
 }
 
-func (p *person) SetOrdering(value int) {
-	p.orderNum = value
+func (p *Person) SetOrdering(value int) {
+	p.OrderNum = value
+}
+
+type ByPriority []*Person
+
+func (b ByPriority) Len() int      { return len(b) }
+func (b ByPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+func (b ByPriority) Less(i, j int) bool {
+	if b[i].Priority() == b[j].Priority() {
+		if b[i].Ordering() == b[j].Ordering() {
+			return b[i].Identifier() < b[j].Identifier()
+		} else {
+			return b[i].Ordering() < b[j].Ordering()
+		}
+	} else {
+		return b[i].Priority() < b[j].Priority()
+	}
 }

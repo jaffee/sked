@@ -153,7 +153,7 @@ func TestGetWeeklyShifts(t *testing.T) {
 		"Wed Nov  4 00:00:00 CST 2015",
 		"Wed Nov 11 00:00:00 CST 2015",
 	}
-	expectedShifts := make([]*shift, 5)
+	expectedShifts := make([]*Shift, 5)
 	for i := 0; i < 5; i++ {
 		dStart, err := time.Parse(time.UnixDate, expectedStrings[2*i])
 		if err != nil {
@@ -163,9 +163,9 @@ func TestGetWeeklyShifts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error parsing date for expected")
 		}
-		expectedShifts[i] = &shift{}
-		expectedShifts[i].start = dStart
-		expectedShifts[i].end = dEnd
+		expectedShifts[i] = &Shift{}
+		expectedShifts[i].StartTime = dStart
+		expectedShifts[i].EndTime = dEnd
 	}
 	for i, s := range shifts {
 		if !expectedShifts[i].Equal(s) {

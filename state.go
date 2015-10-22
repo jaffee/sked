@@ -1,31 +1,66 @@
 package main
 
 import (
+	"bufio"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"github.com/jaffee/sked/scheduling"
+	"os"
 	"sort"
 	"time"
 )
 
-type state struct {
-	people   map[string]*person
-	offset   time.Weekday
-	schedule *schedule
+type State struct {
+	People    map[string]*Person
+	Offset    time.Weekday
+	Schedule  *Schedule
+	StorageID string
 }
 
-func (s *state) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
-	sched := NewSchedule(start, end, s.offset)
-	personList := tempPersonList(s.people)
+func (s *State) Persist() error {
+	f, err := os.Create(s.StorageID)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := bufio.NewWriter(f)
+	enc := gob.NewEncoder(w)
+	err = enc.Encode(s)
+	if err != nil {
+		return err
+	}
+	w.Flush()
+	return nil
+}
+
+func (s *State) Populate() error {
+	f, err := os.Open(s.StorageID)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	dec := gob.NewDecoder(r)
+	err = dec.Decode(s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *State) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
+	sched := NewSchedule(start, end, s.Offset)
+	personList := tempPersonList(s.People)
 	for _, cur_shift := range sched.Shifts() {
 
 		// find person with lowest priority who is available
 		np, err := nextAvailable(personList, cur_shift)
 		if err != nil {
-			np = &person{name: "EMPTY!"}
+			np = &Person{Name: "EMPTY!"}
 		}
 
-		cur_shift.SetWorker(s.people[np.name])
+		cur_shift.SetWorker(s.People[np.Name])
 
 		// re-calc priorities
 		fmt.Println("before loop")
@@ -44,25 +79,9 @@ func (s *state) BuildSchedule(start time.Time, end time.Time) scheduling.Schedul
 	return sched
 }
 
-type ByPriority []*person
-
-func (b ByPriority) Len() int      { return len(b) }
-func (b ByPriority) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
-func (b ByPriority) Less(i, j int) bool {
-	if b[i].Priority() == b[j].Priority() {
-		if b[i].Ordering() == b[j].Ordering() {
-			return b[i].Identifier() < b[j].Identifier()
-		} else {
-			return b[i].Ordering() < b[j].Ordering()
-		}
-	} else {
-		return b[i].Priority() < b[j].Priority()
-	}
-}
-
-func nextAvailable(personList []*person, cur_shift scheduling.Shift) (*person, error) {
+func nextAvailable(personList []*Person, cur_shift scheduling.Shift) (*Person, error) {
 	sort.Sort(ByPriority(personList))
-	var np *person
+	var np *Person
 	found := false
 	for _, p := range personList {
 		if p.IsAvailable(cur_shift) {
@@ -74,29 +93,30 @@ func nextAvailable(personList []*person, cur_shift scheduling.Shift) (*person, e
 	if found {
 		return np, nil
 	} else {
-		return &person{}, errors.New("Could not find anyone to work the shift")
+		return &Person{}, errors.New("Could not find anyone to work the shift")
 	}
 }
 
-func tempPersonList(people map[string]*person) []*person {
-	personList := make([]*person, len(people))
+func tempPersonList(people map[string]*Person) []*Person {
+	personList := make([]*Person, len(people))
 	i := 0
 	for _, p := range people {
-		personList[i] = &person{}
-		personList[i].name = p.name
-		personList[i].unavailability = p.unavailability
-		personList[i].priority = p.priority
-		personList[i].orderNum = p.orderNum
+		personList[i] = &Person{}
+		personList[i].Name = p.Name
+		personList[i].Unavailability = p.Unavailability
+		personList[i].PriorityNum = p.PriorityNum
+		personList[i].OrderNum = p.OrderNum
 		i += 1
 	}
 	return personList
 }
 
-func NewState(offset time.Weekday) state {
+func NewState(offset time.Weekday) State {
 	// Wednesday is the default for offset... makes sense right?
-	s := state{
-		people: make(map[string]*person),
-		offset: offset,
+	s := State{
+		People:    make(map[string]*Person),
+		Offset:    offset,
+		StorageID: "skedState.gob",
 	}
 	return s
 }

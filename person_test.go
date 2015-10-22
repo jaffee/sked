@@ -17,8 +17,8 @@ func TestAddUnavailable(t *testing.T) {
 	}
 	p.AddUnavailable(aShift)
 
-	if len(p.unavailability) != 1 {
-		t.Fatalf("p should have one unavailability, not %v", len(p.unavailability))
+	if len(p.Unavailability) != 1 {
+		t.Fatalf("p should have one unavailability, not %v", len(p.Unavailability))
 	}
 
 	start = time.Date(2015, time.October, 22, 0, 0, 0, 0, loc)
@@ -30,8 +30,8 @@ func TestAddUnavailable(t *testing.T) {
 
 	p.AddUnavailable(aShift)
 
-	if len(p.unavailability) != 2 {
-		t.Fatalf("p should have two unavailabilities, not %v", len(p.unavailability))
+	if len(p.Unavailability) != 2 {
+		t.Fatalf("p should have two unavailabilities, not %v", len(p.Unavailability))
 	}
 
 }

@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-type shift struct {
-	start  time.Time
-	end    time.Time
-	worker scheduling.Schedulable
+type Shift struct {
+	StartTime   time.Time
+	EndTime     time.Time
+	WorkerThing scheduling.Schedulable
 }
 
 // Create a new Shift that goes from start to end.
@@ -18,28 +18,28 @@ func NewShift(start time.Time, end time.Time) (scheduling.Shift, error) {
 	if end.Before(start) {
 		return nil, errors.New("end must be after start")
 	}
-	ns := shift{
-		start: start,
-		end:   end,
+	ns := Shift{
+		StartTime: start,
+		EndTime:   end,
 	}
 	return &ns, nil
 }
 
 // Return the starting time of the shift
-func (s *shift) Start() time.Time {
-	return s.start
+func (s *Shift) Start() time.Time {
+	return s.StartTime
 }
 
 // Return the end time of the shift
-func (s *shift) End() time.Time {
-	return s.end
+func (s *Shift) End() time.Time {
+	return s.EndTime
 }
 
-func (s *shift) Equal(s2 scheduling.Shift) bool {
+func (s *Shift) Equal(s2 scheduling.Shift) bool {
 	return s.Start().Equal(s2.Start()) && s.End().Equal(s2.End())
 }
 
-func (s *shift) Overlaps(s2 scheduling.Shift) bool {
+func (s *Shift) Overlaps(s2 scheduling.Shift) bool {
 	if !(s.End().Before(s2.Start()) || s.End().Equal(s2.Start())) {
 		if !(s.Start().After(s2.End()) || s.Start().Equal(s2.End())) {
 			return true
@@ -48,29 +48,29 @@ func (s *shift) Overlaps(s2 scheduling.Shift) bool {
 	return false
 }
 
-func (s *shift) Worker() scheduling.Schedulable {
-	return s.worker
+func (s *Shift) Worker() scheduling.Schedulable {
+	return s.WorkerThing
 }
 
-func (s *shift) SetWorker(w scheduling.Schedulable) {
-	s.worker = w
+func (s *Shift) SetWorker(w scheduling.Schedulable) {
+	s.WorkerThing = w
 }
 
-func (s *shift) String() string {
+func (s *Shift) String() string {
 	return fmt.Sprintf("%v: %v to %v", s.Worker().Identifier(), s.Start(), s.End())
 }
 
-func GetWeeklyShifts(start time.Time, until time.Time, offset time.Weekday) []*shift {
+func GetWeeklyShifts(start time.Time, until time.Time, offset time.Weekday) []*Shift {
 	lwd := getLastWeekday(start, offset)
 	num_shifts := int((until.Sub(lwd).Hours()/24.0)/7.0) + 1
-	shifts := make([]*shift, num_shifts)
+	shifts := make([]*Shift, num_shifts)
 	cur := lwd
-	var ashift *shift
+	var ashift *Shift
 	for i := 0; i < num_shifts; i++ {
-		ashift = &shift{}
-		ashift.start = cur
+		ashift = &Shift{}
+		ashift.StartTime = cur
 		cur = atMidnight(cur.Add(time.Hour * ((24 * 7) + 2)))
-		ashift.end = cur
+		ashift.EndTime = cur
 		shifts[i] = ashift
 	}
 	return shifts
