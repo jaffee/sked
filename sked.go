@@ -74,7 +74,8 @@ func main() {
 		"remove":   action{removePerson, "Remove a person from scheduling. remove <name>"},
 		"list":     action{list, "List all the possible people that could be scheduled"},
 		"unavail":  action{addUnavailable, "unavail <name> <[YYYY]MMDD[HH]> [to [YYYY]MMDD[HH]]"},
-		"schedule": action{getSchedule, "Build the schedule using the people and availabilities given so far"},
+		"schedule": action{getSchedule, "Get the schedule which has been previously built. Or build and return it if it hasn't been built."},
+		"build":    action{buildSchedule, "(Re)Build the schedule using the people and availabilities given so far"},
 		"start":    action{startScheduling, "Once you have everything set up the way you like it, tell sked to start the current shift. It will udpate itself at the end of each shift, resetting the future schedule each time."},
 	}
 	skedState := NewState(time.Wednesday)
@@ -277,9 +278,18 @@ func removePerson(cc command, s *State) (msg string) {
 	}
 }
 
-func getSchedule(cc command, s *State) (msg string) {
+func buildSchedule(cc command, s *State) (msg string) {
 	sched := s.BuildSchedule(time.Now(), time.Now().Add(time.Hour*24*7*10))
+	s.Schedule = sched
 	return "```" + sched.String() + "```"
+}
+
+func getSchedule(cc command, s *State) (msg string) {
+	if s.Schedule.NumShifts() > 0 {
+		return "```" + s.Schedule.String() + "```"
+	} else {
+		return buildSchedule(cc, s)
+	}
 }
 
 func startScheduling(cc command, s *State) (msg string) {

@@ -56,4 +56,6 @@ type Schedulable interface {
 type Schedule interface {
 	Current() Schedulable
 	String() string
+	Next() (Shift, error)
+	NumShifts() int
 }

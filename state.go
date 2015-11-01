@@ -14,7 +14,7 @@ import (
 type State struct {
 	People    map[string]*Person
 	Offset    time.Weekday
-	Schedule  *Schedule
+	Schedule  scheduling.Schedule
 	StorageID string
 }
 
@@ -52,8 +52,10 @@ func (s *State) Populate() error {
 func (s *State) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
 	sched := NewSchedule(start, end, s.Offset)
 	personList := tempPersonList(s.People)
-	for _, cur_shift := range sched.Shifts() {
-
+	for cur_shift, err := sched.Next(); ; {
+		if err != nil {
+			break
+		}
 		// find person with lowest priority who is available
 		np, err := nextAvailable(personList, cur_shift)
 		if err != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"github.com/jaffee/sked/scheduling"
 	"strings"
 	"time"
@@ -8,6 +9,7 @@ import (
 
 type Schedule struct {
 	ShiftsList []*Shift
+	shiftIdx   int
 }
 
 func NewSchedule(start time.Time, end time.Time, offset time.Weekday) *Schedule {
@@ -27,6 +29,16 @@ func (sched *Schedule) String() string {
 
 }
 
-func (sched *Schedule) Shifts() []*Shift {
-	return sched.ShiftsList
+func (sched *Schedule) Next() (scheduling.Shift, error) {
+	if sched.shiftIdx < len(sched.ShiftsList) {
+		sched.shiftIdx += 1
+		return sched.ShiftsList[sched.shiftIdx-1], nil
+	} else {
+		sched.shiftIdx = 0
+		return &Shift{}, errors.New("End of iteration")
+	}
+}
+
+func (sched *Schedule) NumShifts() int {
+	return len(sched.ShiftsList)
 }
