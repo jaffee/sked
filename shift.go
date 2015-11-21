@@ -19,8 +19,9 @@ func NewShift(start time.Time, end time.Time) (scheduling.Shift, error) {
 		return nil, errors.New("end must be after start")
 	}
 	ns := Shift{
-		StartTime: start,
-		EndTime:   end,
+		StartTime:   start,
+		EndTime:     end,
+		WorkerThing: NewPerson("EMPTY!"),
 	}
 	return &ns, nil
 }
@@ -33,6 +34,10 @@ func (s *Shift) Start() time.Time {
 // Return the end time of the shift
 func (s *Shift) End() time.Time {
 	return s.EndTime
+}
+
+func (s *Shift) String() string {
+	return fmt.Sprintf("%v from %v to %v", s.Worker().Identifier(), s.Start(), s.End())
 }
 
 func (s *Shift) Equal(s2 scheduling.Shift) bool {
@@ -56,21 +61,19 @@ func (s *Shift) SetWorker(w scheduling.Schedulable) {
 	s.WorkerThing = w
 }
 
-func (s *Shift) String() string {
-	return fmt.Sprintf("%v: %v to %v", s.Worker().Identifier(), s.Start(), s.End())
-}
-
 func GetWeeklyShifts(start time.Time, until time.Time, offset time.Weekday) []*Shift {
 	lwd := getLastWeekday(start, offset)
 	num_shifts := int((until.Sub(lwd).Hours()/24.0)/7.0) + 1
 	shifts := make([]*Shift, num_shifts)
 	cur := lwd
-	var ashift *Shift
 	for i := 0; i < num_shifts; i++ {
-		ashift = &Shift{}
-		ashift.StartTime = cur
+		startTime := cur
 		cur = atMidnight(cur.Add(time.Hour * ((24 * 7) + 2)))
-		ashift.EndTime = cur
+		ashift, err := NewShift(startTime, cur)
+		if err != nil {
+			panic(err)
+		}
+
 		shifts[i] = ashift
 	}
 	return shifts

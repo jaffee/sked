@@ -29,6 +29,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"os"
@@ -65,6 +66,9 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: sked <slack-bot-token> [state-file]\n")
 		os.Exit(1)
 	}
+	gob.Register(Shift{})
+	gob.Register(Schedule{})
+	gob.Register(Person{})
 
 	token := os.Args[1]
 	// set up state
@@ -184,20 +188,22 @@ func getCurrent(cc command, s *State) string {
 
 func addPerson(cc command, s *State) string {
 	name := cc.args[0]
-	if _, ok := s.People[name]; ok {
-		return "We already have a " + name + " please choose a different name"
-	}
-	s.People[name] = NewPerson(name)
+	var ordering int
 	if len(cc.args) > 1 {
 		ordering64, err := strconv.ParseInt(cc.args[1], 0, 32)
 		if err != nil {
 			return fmt.Sprintf("Couldn't understand the number you passed in: %v", cc.args[1])
 		}
-		ordering := int(ordering64)
-		s.People[name].SetOrdering(ordering)
+		ordering = int(ordering64)
+	} else {
+		ordering = 0
 	}
-
-	return fmt.Sprintf("%v add with ordering %v", name, s.People[name].Ordering())
+	err := s.AddPerson(name, ordering)
+	if err == nil {
+		return fmt.Sprintf("%v add with ordering %v", name, s.People[name].Ordering())
+	} else {
+		return fmt.Sprintf("%v", err)
+	}
 }
 
 func addUnavailable(cc command, s *State) string {
@@ -285,7 +291,7 @@ func buildSchedule(cc command, s *State) (msg string) {
 }
 
 func getSchedule(cc command, s *State) (msg string) {
-	if s.Schedule.NumShifts() > 0 {
+	if s.Schedule != nil && s.Schedule.NumShifts() > 0 {
 		return "```" + s.Schedule.String() + "```"
 	} else {
 		return buildSchedule(cc, s)

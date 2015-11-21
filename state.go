@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"github.com/jaffee/sked/scheduling"
 	"os"
 	"sort"
@@ -49,34 +48,39 @@ func (s *State) Populate() error {
 	return nil
 }
 
+func (s *State) AddPerson(name string, ordering int) error {
+	if _, ok := s.People[name]; ok {
+		return errors.New("We already have a " + name + " please choose a different name")
+	}
+	s.People[name] = NewPerson(name)
+	s.People[name].SetOrdering(ordering)
+	return nil
+}
+
 func (s *State) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
 	sched := NewSchedule(start, end, s.Offset)
 	personList := tempPersonList(s.People)
-	for cur_shift, err := sched.Next(); ; {
+
+	for {
+		cur_shift, err := sched.Next()
 		if err != nil {
 			break
 		}
 		// find person with lowest priority who is available
 		np, err := nextAvailable(personList, cur_shift)
 		if err != nil {
-			np = &Person{Name: "EMPTY!"}
+			continue // worker is already set to empty
 		}
 
 		cur_shift.SetWorker(s.People[np.Name])
 
-		// re-calc priorities
-		fmt.Println("before loop")
-		fmt.Println(personList)
 		for _, p := range personList {
 			if p.Identifier() != np.Identifier() {
 				p.DecPriority(1)
 			} else {
 				p.IncPriority(len(personList))
 			}
-			fmt.Println(p, p.Priority())
 		}
-		fmt.Println("after loop")
-		fmt.Println(personList)
 	}
 	return sched
 }
