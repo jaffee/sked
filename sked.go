@@ -81,6 +81,7 @@ func main() {
 		"schedule": action{getSchedule, "Get the schedule which has been previously built. Or build and return it if it hasn't been built."},
 		"build":    action{buildSchedule, "(Re)Build the schedule using the people and availabilities given so far"},
 		"start":    action{startScheduling, "Once you have everything set up the way you like it, tell sked to start the current shift. It will udpate itself at the end of each shift, resetting the future schedule each time."},
+		"printCal": action{printCal, "Print in Calendar format (experimental)"},
 	}
 	skedState := NewState(time.Wednesday)
 	skedState.Populate()
@@ -300,4 +301,8 @@ func getSchedule(cc command, s *State) (msg string) {
 
 func startScheduling(cc command, s *State) (msg string) {
 	return "Not yet implemented"
+}
+
+func printCal(cc command, s *State) (msg string) {
+	return "```" + s.Schedule.SPrintCalendar() + "```"
 }

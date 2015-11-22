@@ -14,7 +14,7 @@ type Shift struct {
 }
 
 // Create a new Shift that goes from start to end.
-func NewShift(start time.Time, end time.Time) (scheduling.Shift, error) {
+func NewShift(start time.Time, end time.Time) (*Shift, error) {
 	if end.Before(start) {
 		return nil, errors.New("end must be after start")
 	}
@@ -73,7 +73,6 @@ func GetWeeklyShifts(start time.Time, until time.Time, offset time.Weekday) []*S
 		if err != nil {
 			panic(err)
 		}
-
 		shifts[i] = ashift
 	}
 	return shifts

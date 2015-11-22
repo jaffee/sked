@@ -58,4 +58,5 @@ type Schedule interface {
 	String() string
 	Next() (Shift, error)
 	NumShifts() int
+	SPrintCalendar() string
 }
