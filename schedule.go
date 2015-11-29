@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/jaffee/sked/scheduling"
 	"strings"
 	"time"
 )
@@ -19,7 +18,7 @@ func NewSchedule(start time.Time, end time.Time, offset time.Weekday) *Schedule 
 	return &Schedule{ShiftsList: GetWeeklyShifts(start, end, offset)}
 }
 
-func (sched *Schedule) Current() scheduling.Schedulable {
+func (sched *Schedule) Current() *Person {
 	return sched.ShiftsList[0].Worker()
 }
 
@@ -32,7 +31,7 @@ func (sched *Schedule) String() string {
 
 }
 
-func (sched *Schedule) Next() (scheduling.Shift, error) {
+func (sched *Schedule) Next() (Shifter, error) {
 	if sched.shiftIdx < len(sched.ShiftsList) {
 		sched.shiftIdx += 1
 		return sched.ShiftsList[sched.shiftIdx-1], nil

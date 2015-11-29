@@ -66,9 +66,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: sked <slack-bot-token> [state-file]\n")
 		os.Exit(1)
 	}
+	gob.Register(Interval{})
 	gob.Register(Shift{})
-	gob.Register(Schedule{})
-	gob.Register(Person{})
 
 	token := os.Args[1]
 	// set up state
@@ -84,7 +83,10 @@ func main() {
 		"printCal": action{printCal, "Print in Calendar format (experimental)"},
 	}
 	skedState := NewState(time.Wednesday)
-	skedState.Populate()
+	err := skedState.Populate()
+	if err != nil {
+		log.Printf("Error populating from %v. err: %v.", skedState.StorageID, err)
+	}
 
 	// Output file handling
 	var filename string
@@ -231,11 +233,11 @@ func addUnavailable(cc command, s *State) string {
 			endDate = startDate.Add(time.Hour)
 		}
 	}
-	aShift, err := NewShift(startDate, endDate)
+	aInterval, err := NewInterval(startDate, endDate)
 	if err != nil {
 		return fmt.Sprintf("Your end time:%v is before your start time:%v", endDate, startDate)
 	}
-	p.AddUnavailable(aShift)
+	p.AddUnavailable(aInterval)
 	return fmt.Sprintf("Recorded: %v is unavailable from %v to %v", name, startDate, endDate)
 }
 

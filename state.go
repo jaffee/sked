@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/gob"
 	"errors"
-	"github.com/jaffee/sked/scheduling"
+	"fmt"
 	"os"
 	"sort"
 	"time"
@@ -13,7 +13,7 @@ import (
 type State struct {
 	People    map[string]*Person
 	Offset    time.Weekday
-	Schedule  scheduling.Schedule
+	Schedule  *Schedule
 	StorageID string
 }
 
@@ -26,6 +26,8 @@ func (s *State) Persist() error {
 	w := bufio.NewWriter(f)
 	enc := gob.NewEncoder(w)
 	err = enc.Encode(s)
+	fmt.Println("Persisting:")
+	fmt.Println(s.Schedule)
 	if err != nil {
 		return err
 	}
@@ -43,8 +45,11 @@ func (s *State) Populate() error {
 	dec := gob.NewDecoder(r)
 	err = dec.Decode(s)
 	if err != nil {
+		fmt.Println("ERROR in populate")
 		return err
 	}
+	fmt.Println("Populating - schedule:")
+	fmt.Println(s.Schedule)
 	return nil
 }
 
@@ -57,7 +62,7 @@ func (s *State) AddPerson(name string, ordering int) error {
 	return nil
 }
 
-func (s *State) BuildSchedule(start time.Time, end time.Time) scheduling.Schedule {
+func (s *State) BuildSchedule(start time.Time, end time.Time) *Schedule {
 	sched := NewSchedule(start, end, s.Offset)
 	personList := tempPersonList(s.People)
 
@@ -85,7 +90,7 @@ func (s *State) BuildSchedule(start time.Time, end time.Time) scheduling.Schedul
 	return sched
 }
 
-func nextAvailable(personList []*Person, cur_shift scheduling.Shift) (*Person, error) {
+func nextAvailable(personList []*Person, cur_shift Shifter) (*Person, error) {
 	sort.Sort(ByPriority(personList))
 	var np *Person
 	found := false

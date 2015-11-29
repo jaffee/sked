@@ -1,12 +1,8 @@
 package main
 
-import (
-	"github.com/jaffee/sked/scheduling"
-)
-
 type Person struct {
 	Name           string
-	Unavailability []scheduling.Shift
+	Unavailability []Intervaler
 	PriorityNum    int
 	OrderNum       int
 }
@@ -19,17 +15,17 @@ func NewPerson(name string) *Person {
 	return &p
 }
 
-func (p *Person) IsAvailable(s scheduling.Shift) bool {
-	for _, pshift := range p.Unavailability {
-		if s.Overlaps(pshift) {
+func (p *Person) IsAvailable(i Intervaler) bool {
+	for _, uInterval := range p.Unavailability {
+		if i.Overlaps(uInterval) {
 			return false
 		}
 	}
 	return true
 }
 
-func (p *Person) AddUnavailable(s scheduling.Shift) {
-	p.Unavailability = append(p.Unavailability, s)
+func (p *Person) AddUnavailable(i Intervaler) {
+	p.Unavailability = append(p.Unavailability, i)
 }
 
 func (p *Person) Identifier() string {

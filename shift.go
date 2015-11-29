@@ -3,61 +3,116 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/jaffee/sked/scheduling"
 	"time"
 )
 
-type Shift struct {
-	StartTime   time.Time
-	EndTime     time.Time
-	WorkerThing scheduling.Schedulable
+// A Interval represents a range of time. The Interval starts at the time
+// returned by Start (inclusive) and ends at the time returned by End
+// (exclusive). This way a Interval that starts at the same time another
+// one ends does not overlap, and there is no gap between the two
+// Intervals.
+type Intervaler interface {
+	// Beginning of the Interval - the Interval includes this instant
+	Start() time.Time
+
+	// End of the Interval - the Interval does not include this instant
+	End() time.Time
+
+	// Return whether two Intervals describe the same timespan. They do not
+	// have to be equal byte-for-byte, just semantically
+	// equivalent. (e.g. the times might be in different time zones)
+	Equal(i2 Intervaler) bool
+
+	// Return whether two Intervals have any overlap
+	Overlaps(i2 Intervaler) bool
 }
 
-// Create a new Shift that goes from start to end.
-func NewShift(start time.Time, end time.Time) (*Shift, error) {
+// A Shift is an Interval with a worker (Schedulable) assigned to it.
+type Shifter interface {
+	// Beginning of the shift - the shift includes this instant
+	Start() time.Time
+
+	// End of the shift - the shift does not include this instant
+	End() time.Time
+
+	// Return whether two shifts describe the same timespan. They do not
+	// have to be equal byte-for-byte, just semantically
+	// equivalent. (e.g. the times might be in different time zones)
+	Equal(i2 Intervaler) bool
+
+	// Return whether two shifts have any overlap
+	Overlaps(i2 Intervaler) bool
+
+	SetWorker(w *Person)
+
+	// Return the Schedulable thing which is assigned to this shift (if any)
+	Worker() *Person
+
+	String() string
+}
+
+type Interval struct {
+	StartTime time.Time
+	EndTime   time.Time
+}
+
+func NewInterval(start time.Time, end time.Time) (*Interval, error) {
 	if end.Before(start) {
 		return nil, errors.New("end must be after start")
 	}
-	ns := Shift{
-		StartTime:   start,
-		EndTime:     end,
-		WorkerThing: NewPerson("EMPTY!"),
-	}
-	return &ns, nil
+	return &Interval{start, end}, nil
 }
 
 // Return the starting time of the shift
-func (s *Shift) Start() time.Time {
-	return s.StartTime
+func (i *Interval) Start() time.Time {
+	return i.StartTime
 }
 
 // Return the end time of the shift
-func (s *Shift) End() time.Time {
-	return s.EndTime
+func (i *Interval) End() time.Time {
+	return i.EndTime
 }
 
-func (s *Shift) String() string {
-	return fmt.Sprintf("%v from %v to %v", s.Worker().Identifier(), s.Start(), s.End())
+func (i *Interval) Equal(i2 Intervaler) bool {
+	return i.Start().Equal(i2.Start()) && i.End().Equal(i2.End())
 }
 
-func (s *Shift) Equal(s2 scheduling.Shift) bool {
-	return s.Start().Equal(s2.Start()) && s.End().Equal(s2.End())
-}
-
-func (s *Shift) Overlaps(s2 scheduling.Shift) bool {
-	if !(s.End().Before(s2.Start()) || s.End().Equal(s2.Start())) {
-		if !(s.Start().After(s2.End()) || s.Start().Equal(s2.End())) {
+func (i *Interval) Overlaps(i2 Intervaler) bool {
+	if !(i.End().Before(i2.Start()) || i.End().Equal(i2.Start())) {
+		if !(i.Start().After(i2.End()) || i.Start().Equal(i2.End())) {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *Shift) Worker() scheduling.Schedulable {
+type Shift struct {
+	*Interval
+	WorkerThing *Person
+}
+
+// Create a new Shift that goes from start to end.
+func NewShift(start time.Time, end time.Time) (*Shift, error) {
+	interval, err := NewInterval(start, end)
+	if err != nil {
+		return nil, err
+	}
+	ns := Shift{
+		Interval:    interval,
+		WorkerThing: NewPerson("EMPTY!"),
+	}
+	return &ns, nil
+}
+
+func (s *Shift) String() string {
+	return fmt.Sprintf("%v from %v to %v", s.Worker().Identifier(), s.Start(), s.End())
+}
+
+func (s *Shift) Worker() *Person {
 	return s.WorkerThing
 }
 
-func (s *Shift) SetWorker(w scheduling.Schedulable) {
+func (s *Shift) SetWorker(w *Person) {
 	s.WorkerThing = w
 }
 
