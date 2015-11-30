@@ -31,8 +31,12 @@ type Intervaler interface {
 	// Beginning of the Interval - the Interval includes this instant
 	Start() time.Time
 
+	SetStart(t time.Time) error
+
 	// End of the Interval - the Interval does not include this instant
 	End() time.Time
+
+	SetEnd(t time.Time) error
 
 	// Return whether two Intervals describe the same timespan. They do not
 	// have to be equal byte-for-byte, just semantically
@@ -51,8 +55,12 @@ type Shifter interface {
 	// Beginning of the shift - the shift includes this instant
 	Start() time.Time
 
+	SetStart(t time.Time) error
+
 	// End of the shift - the shift does not include this instant
 	End() time.Time
+
+	SetEnd(t time.Time) error
 
 	// Return whether two shifts describe the same timespan. They do not
 	// have to be equal byte-for-byte, just semantically
@@ -79,8 +87,8 @@ type Interval struct {
 }
 
 func NewInterval(start time.Time, end time.Time) (*Interval, error) {
-	if end.Before(start) {
-		return nil, errors.New("end must be after start")
+	if !end.After(start) {
+		return nil, errors.New("End must be after start.")
 	}
 	return &Interval{start, end}, nil
 }
@@ -90,9 +98,25 @@ func (i *Interval) Start() time.Time {
 	return i.StartTime
 }
 
+func (i *Interval) SetStart(t time.Time) error {
+	if !t.Before(i.End()) {
+		return errors.New("Start must be before end.")
+	}
+	i.StartTime = t
+	return nil
+}
+
 // Return the end time of the shift
 func (i *Interval) End() time.Time {
 	return i.EndTime
+}
+
+func (i *Interval) SetEnd(t time.Time) error {
+	if !t.After(i.Start()) {
+		return errors.New("End must be after start.")
+	}
+	i.EndTime = t
+	return nil
 }
 
 func (i *Interval) Equal(i2 Intervaler) bool {

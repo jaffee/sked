@@ -71,6 +71,7 @@ func main() {
 
 	token := os.Args[1]
 	// set up state
+	// TODO rename all command funcs to <name>Cmd
 	commandMap := map[string]action{
 		"current":  action{getCurrent, "Tell me who's scheduled right now"},
 		"add":      action{addPerson, "Add a new person to be scheduled. add <name> [ordering_num]"},
@@ -243,13 +244,15 @@ func addUnavailable(cc command, s *State) string {
 
 // Given a string representing
 func getDate(dateStr string) (time.Time, error) {
+	// TODO better timezone awareness in here
 	var date time.Time
 	var err error
 	switch len(dateStr) {
-	case 4:
-		date, err = time.Parse("0102", dateStr)
-	case 6:
-		date, err = time.Parse("010215", dateStr)
+	case 4, 6:
+		dateStr := fmt.Sprintf("%v%v", time.Now().Year(), dateStr)
+		date, err = time.Parse("20060102", dateStr)
+	// case 6:
+	// 	date, err = time.Parse("010215", dateStr)
 	case 8:
 		date, err = time.Parse("20060102", dateStr)
 	case 10:
@@ -318,11 +321,11 @@ func editScheduleCmd(cc command, s *State) (msg string) {
 		return "No one named: " + name
 	}
 	editSchedule(person, start, end, s)
-	return "Schedule was edited - NOT, it isn't implemented yet" // TODO
+	return "Schedule was edited"
 }
 
 func editSchedule(person *Person, start time.Time, end time.Time, s *State) {
-	// TODO
+	s.Schedule.AddShift(person, start, end)
 }
 
 func startScheduling(cc command, s *State) (msg string) {
