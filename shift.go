@@ -6,6 +6,22 @@ import (
 	"time"
 )
 
+type Overlap int
+
+const (
+	Before        = Overlap(iota) // --{---}--[---]--  OR --{---}[---]--
+	OverlapsStart                 // --{--[-}---]
+	Prefix                        // --[{--}-]--
+	EndsLater                     // --[{---]-}--
+	Interior                      // --[-{-}-]--
+	Same                          // --[{---}]--
+	Subsumes                      // --{-[-]-}--
+	StartsEarlier                 // --{-[--}]--
+	Suffix                        // --[-{--}]--
+	OverlapsEnd                   // --[--{-]--}--
+	After                         // --[---]--{---}-- OR --[---]{---}--
+)
+
 // A Interval represents a range of time. The Interval starts at the time
 // returned by Start (inclusive) and ends at the time returned by End
 // (exclusive). This way a Interval that starts at the same time another
@@ -25,6 +41,9 @@ type Intervaler interface {
 
 	// Return whether two Intervals have any overlap
 	Overlaps(i2 Intervaler) bool
+
+	// Return an Overlap which denotes how two Intervals overlap
+	GetOverlap(i2 Intervaler) Overlap
 }
 
 // A Shift is an Interval with a worker (Schedulable) assigned to it.
@@ -49,6 +68,9 @@ type Shifter interface {
 	Worker() *Person
 
 	String() string
+
+	// Return an Overlap which denotes how two Intervals overlap
+	GetOverlap(i2 Intervaler) Overlap
 }
 
 type Interval struct {
@@ -84,6 +106,34 @@ func (i *Interval) Overlaps(i2 Intervaler) bool {
 		}
 	}
 	return false
+}
+
+func (i *Interval) GetOverlap(i2 Intervaler) Overlap {
+	if i.End().Before(i2.Start()) || i.End().Equal(i2.Start()) {
+		return Before
+	} else if i.Start().Before(i2.Start()) && i.End().Before(i2.End()) {
+		return OverlapsStart
+	} else if i.Start().Equal(i2.Start()) && i.End().Before(i2.End()) {
+		return Prefix
+	} else if i.Start().Equal(i2.Start()) && i.End().After(i2.End()) {
+		return EndsLater
+	} else if i.Start().After(i2.Start()) && i.End().Before(i2.End()) {
+		return Interior
+	} else if i.Equal(i2) {
+		return Same
+	} else if i.Start().Before(i2.Start()) && i.End().After(i2.End()) {
+		return Subsumes
+	} else if i.Start().Before(i2.Start()) && i.End().Equal(i2.End()) {
+		return StartsEarlier
+	} else if i.Start().After(i2.Start()) && i.End().Equal(i2.End()) {
+		return Suffix
+	} else if i.Start().Before(i2.End()) && i.End().After(i2.End()) {
+		return OverlapsEnd
+	} else if i.Start().After(i2.End()) || i.Start().Equal(i2.End()) {
+		return After
+	} else {
+		panic(fmt.Sprintf("Bug in GetOverlap: i: %v, i2: %v\n", i, i2))
+	}
 }
 
 type Shift struct {

@@ -79,7 +79,7 @@ func main() {
 		"unavail":  action{addUnavailable, "unavail <name> <[YYYY]MMDD[HH]> [to [YYYY]MMDD[HH]]"},
 		"schedule": action{getSchedule, "Get the schedule which has been previously built. Or build and return it if it hasn't been built."},
 		"build":    action{buildSchedule, "(Re)Build the schedule using the people and availabilities given so far"},
-		"start":    action{startScheduling, "Once you have everything set up the way you like it, tell sked to start the current shift. It will udpate itself at the end of each shift, resetting the future schedule each time."},
+		"edit":     action{editScheduleCmd, "edit <name> [YYYY]<MMDD>[HH] to [YYYY]<MMDD>[HH]"},
 		"printCal": action{printCal, "Print in Calendar format (experimental)"},
 	}
 	skedState := NewState(time.Wednesday)
@@ -299,6 +299,30 @@ func getSchedule(cc command, s *State) (msg string) {
 	} else {
 		return buildSchedule(cc, s)
 	}
+}
+
+func editScheduleCmd(cc command, s *State) (msg string) {
+	// parse args - call edit Schedule
+	name := cc.args[0]
+	start, err := getDate(cc.args[1])
+	if err != nil {
+		return fmt.Sprintf("%v is not a valid date. Error: %v", cc.args[1], err)
+	}
+	end, err := getDate(cc.args[3])
+	if err != nil {
+		return fmt.Sprintf("%v is not a valid date. Error: %v", cc.args[3], err)
+	}
+
+	person, ok := s.People[name]
+	if !ok {
+		return "No one named: " + name
+	}
+	editSchedule(person, start, end, s)
+	return "Schedule was edited - NOT, it isn't implemented yet" // TODO
+}
+
+func editSchedule(person *Person, start time.Time, end time.Time, s *State) {
+	// TODO
 }
 
 func startScheduling(cc command, s *State) (msg string) {

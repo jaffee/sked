@@ -163,13 +163,116 @@ func TestGetWeeklyShifts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error parsing date for expected")
 		}
-		expectedShifts[i] = &Shift{}
-		expectedShifts[i].StartTime = dStart
-		expectedShifts[i].EndTime = dEnd
+		s, err := NewShift(dStart, dEnd)
+		if err != nil {
+			t.Fatalf("Error creating shift: %v", err)
+		}
+		expectedShifts[i] = s
 	}
 	for i, s := range shifts {
 		if !expectedShifts[i].Equal(s) {
 			t.Fatalf("Output failed to match at index:%v, \nexpected:%vactual:  %v", i, expectedShifts[i], s)
 		}
 	}
+}
+
+func TestGetOverlap(t *testing.T) {
+	var istart, iend time.Time
+	var i Interval
+	loc, _ := time.LoadLocation("America/Chicago")
+	i2start := time.Date(2015, time.October, 10, 0, 0, 0, 0, loc)
+	i2end := time.Date(2015, time.October, 13, 0, 0, 0, 0, loc)
+	i2 := &Interval{i2start, i2end}
+
+	istart = time.Date(2015, time.October, 5, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 8, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Before {
+		t.Fatalf("GetOverlap Before 1")
+	}
+
+	istart = time.Date(2015, time.October, 5, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 10, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Before {
+		t.Fatalf("GetOverlap Before 2")
+	}
+
+	istart = time.Date(2015, time.October, 5, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 11, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != OverlapsStart {
+		t.Fatalf("GetOverlap OverlapsStart 3")
+	}
+
+	istart = time.Date(2015, time.October, 10, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 11, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Prefix {
+		t.Fatalf("GetOverlap Prefix 4")
+	}
+
+	istart = time.Date(2015, time.October, 10, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 14, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != EndsLater {
+		t.Fatalf("GetOverlap EndsLater 5")
+	}
+
+	istart = time.Date(2015, time.October, 11, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 12, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Interior {
+		t.Fatalf("GetOverlap Interior 6")
+	}
+
+	istart = time.Date(2015, time.October, 10, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 13, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Same {
+		t.Fatalf("GetOverlap Same 7")
+	}
+
+	istart = time.Date(2015, time.October, 9, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 14, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Subsumes {
+		t.Fatalf("GetOverlap Subsumes 8")
+	}
+
+	istart = time.Date(2015, time.October, 9, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 13, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != StartsEarlier {
+		t.Fatalf("GetOverlap StartsEarlier 9")
+	}
+
+	istart = time.Date(2015, time.October, 11, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 13, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != Suffix {
+		t.Fatalf("GetOverlap Suffix 10")
+	}
+
+	istart = time.Date(2015, time.October, 11, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 14, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != OverlapsEnd {
+		t.Fatalf("GetOverlap OverlapsEnd 11")
+	}
+
+	istart = time.Date(2015, time.October, 14, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 15, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != After {
+		t.Fatalf("GetOverlap After 12")
+	}
+
+	istart = time.Date(2015, time.October, 13, 0, 0, 0, 0, loc)
+	iend = time.Date(2015, time.October, 15, 0, 0, 0, 0, loc)
+	i = Interval{istart, iend}
+	if i.GetOverlap(i2) != After {
+		t.Fatalf("GetOverlap After 13")
+	}
+
 }
