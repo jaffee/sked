@@ -242,27 +242,25 @@ func addUnavailable(cc command, s *State) string {
 	return fmt.Sprintf("Recorded: %v is unavailable from %v to %v", name, startDate, endDate)
 }
 
-// Given a string representing
+// Given a string representing a date in one of several formats, get
+// the Time object
 func getDate(dateStr string) (time.Time, error) {
-	// TODO better timezone awareness in here
+	loc := time.Now().Location()
 	var date time.Time
 	var err error
 	switch len(dateStr) {
 	case 4, 6:
 		dateStr := fmt.Sprintf("%v%v", time.Now().Year(), dateStr)
-		date, err = time.Parse("20060102", dateStr)
-	// case 6:
-	// 	date, err = time.Parse("010215", dateStr)
+		date, err = time.ParseInLocation("20060102", dateStr, loc)
 	case 8:
-		date, err = time.Parse("20060102", dateStr)
+		date, err = time.ParseInLocation("20060102", dateStr, loc)
 	case 10:
-		date, err = time.Parse("2006010215", dateStr)
+		date, err = time.ParseInLocation("2006010215", dateStr, loc)
 	}
 	if err != nil {
 		return time.Time{}, err
 	}
 	return date, nil
-
 }
 
 func list(cc command, s *State) (msg string) {
