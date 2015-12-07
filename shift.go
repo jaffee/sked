@@ -38,6 +38,8 @@ type Intervaler interface {
 
 	SetEnd(t time.Time) error
 
+	Contains(t time.Time) bool
+
 	// Return whether two Intervals describe the same timespan. They do not
 	// have to be equal byte-for-byte, just semantically
 	// equivalent. (e.g. the times might be in different time zones)
@@ -52,23 +54,7 @@ type Intervaler interface {
 
 // A Shift is an Interval with a worker (Schedulable) assigned to it.
 type Shifter interface {
-	// Beginning of the shift - the shift includes this instant
-	Start() time.Time
-
-	SetStart(t time.Time) error
-
-	// End of the shift - the shift does not include this instant
-	End() time.Time
-
-	SetEnd(t time.Time) error
-
-	// Return whether two shifts describe the same timespan. They do not
-	// have to be equal byte-for-byte, just semantically
-	// equivalent. (e.g. the times might be in different time zones)
-	Equal(i2 Intervaler) bool
-
-	// Return whether two shifts have any overlap
-	Overlaps(i2 Intervaler) bool
+	Intervaler
 
 	SetWorker(w *Person)
 
@@ -76,9 +62,6 @@ type Shifter interface {
 	Worker() *Person
 
 	String() string
-
-	// Return an Overlap which denotes how two Intervals overlap
-	GetOverlap(i2 Intervaler) Overlap
 }
 
 type Interval struct {
@@ -117,6 +100,10 @@ func (i *Interval) SetEnd(t time.Time) error {
 	}
 	i.EndTime = t
 	return nil
+}
+
+func (i *Interval) Contains(t time.Time) bool {
+	return t.After(i.Start()) && t.Before(i.End())
 }
 
 func (i *Interval) Equal(i2 Intervaler) bool {

@@ -18,8 +18,22 @@ func NewSchedule(start time.Time, end time.Time, offset time.Weekday) *Schedule 
 	return &Schedule{ShiftsList: GetWeeklyShifts(start, end, offset)}
 }
 
-func (sched *Schedule) Current() *Person {
-	return sched.ShiftsList[0].Worker()
+func (sched *Schedule) Current() (*Person, error) {
+	shift, err := sched.GetShift(time.Now())
+	if err != nil {
+		return &Person{}, err
+	}
+	return shift.Worker(), nil
+}
+
+func (sched *Schedule) GetShift(t time.Time) (*Shift, error) {
+	for _, shift := range sched.ShiftsList {
+		if shift.Contains(t) {
+			return shift, nil
+		}
+	}
+	return nil, errors.New(fmt.Sprintf("Time %v is not in the schedule which goes from %v to %v",
+		t, sched.ShiftsList[0].Start(), sched.ShiftsList[sched.NumShifts()-1].End()))
 }
 
 func (sched *Schedule) String() string {

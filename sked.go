@@ -150,8 +150,10 @@ func run(logChan chan string, token string, command_map map[string]action, skedS
 				// write to command log
 				logChan <- strings.Join(parts[1:], " ")
 				c := command{parts[1], parts[2:]}
+				skedState.Lock()
 				msg = act.function(c, &skedState)
 				err := skedState.Persist()
+				skedState.Unlock()
 				if err != nil {
 					m.Text = fmt.Sprintf("I'm having trouble persisting my state - err: %v", err)
 					go postMessage(ws, m)
@@ -187,7 +189,11 @@ func helpAction(command_map map[string]action, parts []string) string {
 }
 
 func getCurrent(cc command, s *State) string {
-	return s.Schedule.Current().Identifier()
+	w, err := s.Schedule.Current()
+	if err != nil {
+		return err.Error()
+	}
+	return w.Identifier()
 }
 
 func addPerson(cc command, s *State) string {
@@ -327,7 +333,8 @@ func editSchedule(person *Person, start time.Time, end time.Time, s *State) {
 }
 
 func startScheduling(cc command, s *State) (msg string) {
-	return "Not yet implemented"
+	go runSchedule(s)
+	return "Schedule started"
 }
 
 func printCal(cc command, s *State) (msg string) {

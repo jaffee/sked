@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,15 @@ type State struct {
 	Offset    time.Weekday
 	Schedule  *Schedule
 	StorageID string
+	lock      sync.Mutex
+}
+
+func (s *State) Lock() {
+	s.lock.Lock()
+}
+
+func (s *State) Unlock() {
+	s.lock.Unlock()
 }
 
 func (s *State) Persist() error {
